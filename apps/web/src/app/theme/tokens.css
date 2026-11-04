@@ -1,0 +1,180 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Superficies y bordes (referencia clara: ledger índigo sobre cristal esmerilado) */
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #f8fafd;
+  --surface-hover: #e5edf5;
+  --accent-wash: #e8e9ff;
+  --border: #e5edf5;
+  --border-strong: #64748d;
+  --border-ghost: #b9b9f9;
+
+  /* Texto (ajustado a WCAG 2.2 AA >= 4.5:1 en cuerpo y etiquetas) */
+  --text-heading: #061b31;
+  --text-body: #273951;
+  --text-muted: #64748d;
+  --text-subtle: #64748d;
+
+  /* Acción única por vista y foco */
+  --action: #533afd;
+  --action-text: #ffffff;
+  --action-hover: #3f27d8;
+  --link: #533afd;
+  --focus-ring: #533afd;
+
+  /* Estados (nunca se usan solos sin icono y texto) */
+  --status-success-bg: #ecfdf3;
+  --status-success-text: #166534;
+  --status-success-border: #86efac;
+  --status-danger-bg: #fef2f2;
+  --status-danger-text: #991b1b;
+  --status-danger-border: #fca5a5;
+  --status-warning-bg: #fffbeb;
+  --status-warning-text: #92400e;
+  --status-warning-border: #fcd34d;
+  --status-info-bg: #f8fafd;
+  --status-info-text: #273951;
+  --status-info-border: #64748d;
+
+  /* Series de gráficos (máximo 5, contraste >= 3:1 sobre --surface) */
+  --chart-1: #533afd;
+  --chart-2: #6b5be2;
+  --chart-3: #182659;
+  --chart-4: #64748d;
+  --chart-5: #061b31;
+
+  /* Geometría y tipografía */
+  --radius-control: 4px;
+  --radius-card: 4px;
+  --radius-pill: 9999px;
+  --elevation: none;
+  --heading-weight: 300;
+  --body-weight: 400;
+  --font-features: 'ss01' 1, 'tnum' 1;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Superficies y bordes (referencia oscura: instrumento de precisión medianoche) */
+  --canvas: #08090a;
+  --surface: #0f1011;
+  --surface-raised: #161718;
+  --surface-hover: #23252a;
+  --accent-wash: rgba(255, 255, 255, 0.05);
+  --border: #23252a;
+  --border-strong: #62666d;
+  --border-ghost: #383b3f;
+
+  /* Texto */
+  --text-heading: #ffffff;
+  --text-body: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-subtle: #62666d;
+
+  /* Acción única por vista y foco */
+  --action: #e4f222;
+  --action-text: #08090a;
+  --action-hover: #cad819;
+  --link: #d0d6e0;
+  --focus-ring: #d0d6e0;
+
+  /* Estados */
+  --status-success-bg: #0d2818;
+  --status-success-text: #5cd679;
+  --status-success-border: #27a644;
+  --status-danger-bg: #2d1215;
+  --status-danger-text: #ff8a8a;
+  --status-danger-border: #eb5757;
+  --status-warning-bg: #2b2108;
+  --status-warning-text: #facc15;
+  --status-warning-border: #ca8a04;
+  --status-info-bg: #161718;
+  --status-info-text: #d0d6e0;
+  --status-info-border: #62666d;
+
+  /* Series de gráficos */
+  --chart-1: #e4f222;
+  --chart-2: #02b8cc;
+  --chart-3: #8b5cf6;
+  --chart-4: #27a644;
+  --chart-5: #8a8f98;
+
+  /* Geometría y tipografía */
+  --radius-control: 6px;
+  --radius-card: 12px;
+  --radius-pill: 9999px;
+  --elevation: inset 0 0 0 1px #23252a;
+  --heading-weight: 510;
+  --body-weight: 400;
+  --font-features: 'cv01' 1, 'ss03' 1, 'zero' 1, 'tnum' 1;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-accent-wash: var(--accent-wash);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-ghost: var(--border-ghost);
+
+  --color-heading: var(--text-heading);
+  --color-body: var(--text-body);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+
+  --color-action: var(--action);
+  --color-action-text: var(--action-text);
+  --color-action-hover: var(--action-hover);
+  --color-link: var(--link);
+  --color-focus-ring: var(--focus-ring);
+
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-success-border: var(--status-success-border);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-danger-text: var(--status-danger-text);
+  --color-status-danger-border: var(--status-danger-border);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-info-border: var(--status-info-border);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-pill: var(--radius-pill);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  font-weight: var(--body-weight);
+  font-feature-settings: var(--font-features);
+}
+
+.tap-heading-lg {
+  color: var(--text-heading);
+  font-weight: var(--heading-weight);
+  letter-spacing: -0.022em;
+  line-height: 1.08;
+}
+
+.tap-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
