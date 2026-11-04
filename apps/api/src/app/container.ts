@@ -8,11 +8,22 @@ import {
   type PasswordHasher,
 } from '../modules/access/index.ts';
 import {
+  createEventsModule,
+  type EventPosterRenderer,
+  type EventsModule,
+  type EventsRepository,
+} from '../modules/events/index.ts';
+import {
   DEFAULT_FEATURE_FLAGS,
   createOrganizationsModule,
   type OrganizationsModule,
   type OrganizationsRepository,
 } from '../modules/organizations/index.ts';
+import {
+  createPeopleModule,
+  type PeopleModule,
+  type PeopleRepository,
+} from '../modules/people/index.ts';
 import {
   CryptoIdGenerator,
   DrizzleAuditLog,
@@ -46,6 +57,8 @@ export interface AppContainer {
   readonly auditLog: AuditLog;
   readonly organizationsModule: OrganizationsModule;
   readonly accessModule: AccessModule;
+  readonly peopleModule: PeopleModule;
+  readonly eventsModule: EventsModule;
   seedInitialData(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -63,6 +76,9 @@ export function createAppContainer(params: {
   inMemoryRepositories?: boolean;
   organizationsRepository?: OrganizationsRepository;
   accessRepository?: AccessRepository;
+  peopleRepository?: PeopleRepository;
+  eventsRepository?: EventsRepository;
+  posterRenderer?: EventPosterRenderer;
   passwordHasher?: PasswordHasher;
   jwtService?: JwtTokenService;
   googleClient?: GoogleOAuthClient;
@@ -111,6 +127,29 @@ export function createAppContainer(params: {
     auditLog,
     isEmailAllowedForOrg: (organizationId, email) =>
       organizationsModule.isEmailAllowed(organizationId, email),
+  });
+
+  const peopleModule = createPeopleModule({
+    db: useInMemory ? undefined : database.db,
+    repository: params.peopleRepository,
+    idGenerator,
+    clock,
+    auditLog,
+  });
+
+  const eventsModule = createEventsModule({
+    db: useInMemory ? undefined : database.db,
+    repository: params.eventsRepository,
+    posterRenderer: params.posterRenderer,
+    idGenerator,
+    clock,
+    eventBus,
+    auditLog,
+    appUrl: params.config.APP_URL,
+    getOrganizationName: async (organizationId) => {
+      const org = await organizationsModule.getOrganizationById(organizationId);
+      return org?.name ?? null;
+    },
   });
 
   async function seedInitialData(): Promise<void> {
@@ -180,6 +219,8 @@ export function createAppContainer(params: {
     auditLog,
     organizationsModule,
     accessModule,
+    peopleModule,
+    eventsModule,
     seedInitialData,
     async start(): Promise<void> {
       await jobQueue.start();

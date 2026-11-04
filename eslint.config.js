@@ -156,6 +156,8 @@ export default tseslint.config(
                       'pino',
                       'jose',
                       '@node-rs/argon2',
+                      'pdfkit',
+                      'qrcode',
                     ],
                   },
                 },

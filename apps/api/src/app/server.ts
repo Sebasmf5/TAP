@@ -200,12 +200,14 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   await app.register(
     async (v1) => {
       await registerHealthRoutes(v1);
+      const authenticate = (
+        req: Parameters<typeof container.accessModule.authenticateRequest>[0],
+      ) => container.accessModule.authenticateRequest(req);
+
       await v1.register(container.accessModule.createRoutes());
-      await v1.register(
-        container.organizationsModule.createRoutes((req) =>
-          container.accessModule.authenticateRequest(req),
-        ),
-      );
+      await v1.register(container.organizationsModule.createRoutes(authenticate));
+      await v1.register(container.peopleModule.createRoutes(authenticate));
+      await v1.register(container.eventsModule.createRoutes(authenticate));
     },
     { prefix: '/api/v1' },
   );
