@@ -1,20 +1,5 @@
 import { z } from 'zod';
 
-/** Roles del personal definidos en AGENTS.md A7.1. */
-export const StaffRoleSchema = z.enum(['platform_admin', 'org_admin', 'operator', 'viewer']);
-export type StaffRole = z.infer<typeof StaffRoleSchema>;
-
-/** Tipos de entidad definidos en docs/especificacion.md B1.2. */
-export const OrganizationTypeSchema = z.enum([
-  'ente_deportivo',
-  'caja',
-  'gimnasio',
-  'empresa',
-  'institucion_educativa',
-  'otro',
-]);
-export type OrganizationType = z.infer<typeof OrganizationTypeSchema>;
-
 /** Respuesta estándar RFC 9457 (application/problem+json). */
 export const ProblemDetailsSchema = z.object({
   type: z.string(),
@@ -58,3 +43,6 @@ export const PaginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
+
+export * from './access.ts';
+export * from './organizations.ts';

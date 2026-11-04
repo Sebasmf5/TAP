@@ -5,7 +5,8 @@
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
+    "lib": ["ES2023", "DOM"],
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts", "*.config.ts"]
+  "include": ["scripts/**/*.ts", "e2e/**/*.ts", "*.config.ts"]
 }

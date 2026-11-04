@@ -154,6 +154,8 @@ export default tseslint.config(
                       'pg',
                       'pg-boss',
                       'pino',
+                      'jose',
+                      '@node-rs/argon2',
                     ],
                   },
                 },
