@@ -1,3 +1,4 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import swagger from '@fastify/swagger';
@@ -48,6 +49,8 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });
+
+  await app.register(cookie);
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -193,7 +196,19 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   };
 
   await registerHealthRoutes(app);
-  await app.register(registerHealthRoutes, { prefix: '/api/v1' });
+
+  await app.register(
+    async (v1) => {
+      await registerHealthRoutes(v1);
+      await v1.register(container.accessModule.createRoutes());
+      await v1.register(
+        container.organizationsModule.createRoutes((req) =>
+          container.accessModule.authenticateRequest(req),
+        ),
+      );
+    },
+    { prefix: '/api/v1' },
+  );
 
   return app;
 }

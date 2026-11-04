@@ -1,14 +1,38 @@
 import { createAppContainer } from './app/container.ts';
+import type { DatabaseConnection } from './app/db/connection.ts';
 import { runMigrations } from './app/db/migrate.ts';
 import { buildServer } from './app/server.ts';
-import { createLogger, loadConfig } from './shared/index.ts';
+import { InMemoryJobQueue, createLogger, loadConfig } from './shared/index.ts';
 
 const config = loadConfig();
 const logger = createLogger(config.LOG_LEVEL);
-const container = createAppContainer({ config, logger });
+const useInMemory = process.env['TAP_IN_MEMORY'] === 'true';
 
-await runMigrations(container.database.db);
+const container = createAppContainer({
+  config,
+  logger,
+  inMemoryRepositories: useInMemory,
+  jobQueue: useInMemory ? new InMemoryJobQueue() : undefined,
+  database: useInMemory
+    ? ({
+        pool: {} as DatabaseConnection['pool'],
+        db: {} as DatabaseConnection['db'],
+        async ping() {
+          return true;
+        },
+        async close() {},
+      } satisfies DatabaseConnection)
+    : undefined,
+});
+
+if (!useInMemory) {
+  await runMigrations(container.database.db);
+}
 await container.start();
+
+if (config.NODE_ENV !== 'production') {
+  await container.seedInitialData();
+}
 
 const server = await buildServer(container);
 
