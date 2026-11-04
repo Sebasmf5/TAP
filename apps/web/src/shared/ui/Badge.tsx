@@ -1,7 +1,7 @@
-import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, Minus } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-export type BadgeStatus = 'success' | 'danger' | 'warning' | 'info';
+export type BadgeStatus = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
 
 export interface BadgeProps {
   readonly status?: BadgeStatus;
@@ -24,6 +24,10 @@ const STATUS_STYLES: Record<BadgeStatus, { classes: string; Icon: typeof Info }>
   info: {
     classes: 'bg-status-info-bg text-status-info-text border-status-info-border',
     Icon: Info,
+  },
+  neutral: {
+    classes: 'bg-surface-raised text-body border-border',
+    Icon: Minus,
   },
 };
 

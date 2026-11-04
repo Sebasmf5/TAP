@@ -1,0 +1,123 @@
+import type { AuthTokenResponse, ProblemDetails } from '@tap/contracts';
+
+const API_BASE_URL = (import.meta.env['VITE_API_BASE_URL'] as string | undefined) ?? '/api/v1';
+
+/**
+ * El token de acceso JWT vive únicamente en memoria de ejecución del cliente (AGENTS.md A7.1).
+ * Jamás se guarda en localStorage ni sessionStorage.
+ */
+let memoryAccessToken: string | null = null;
+let inflightRefreshPromise: Promise<AuthTokenResponse | null> | null = null;
+
+export function getAccessTokenFromMemory(): string | null {
+  return memoryAccessToken;
+}
+
+export function setAccessTokenInMemory(token: string | null): void {
+  memoryAccessToken = token;
+}
+
+export class ApiClientError extends Error {
+  public readonly status: number;
+  public readonly code: string;
+  public readonly detail: string;
+  public readonly fieldErrors: ReadonlyArray<{ path: string; message: string }>;
+
+  constructor(problem: Partial<ProblemDetails> & { status: number; detail: string }) {
+    super(problem.detail);
+    this.name = 'ApiClientError';
+    this.status = problem.status;
+    this.code = problem.code ?? 'API_ERROR';
+    this.detail = problem.detail;
+    this.fieldErrors = problem.errors ?? [];
+  }
+}
+
+export async function refreshAccessTokenSilently(): Promise<AuthTokenResponse | null> {
+  if (inflightRefreshPromise) {
+    return inflightRefreshPromise;
+  }
+
+  inflightRefreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        setAccessTokenInMemory(null);
+        return null;
+      }
+      const data = (await res.json()) as AuthTokenResponse;
+      setAccessTokenInMemory(data.accessToken);
+      return data;
+    } catch {
+      setAccessTokenInMemory(null);
+      return null;
+    } finally {
+      inflightRefreshPromise = null;
+    }
+  })();
+
+  return inflightRefreshPromise;
+}
+
+export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
+  readonly body?: unknown;
+  readonly skipAuthRefresh?: boolean;
+}
+
+export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${API_BASE_URL}${normalizedPath}`;
+
+  const execute = async (token: string | null): Promise<Response> => {
+    const headers = new Headers(options.headers);
+    if (options.body !== undefined) {
+      headers.set('content-type', 'application/json');
+    }
+    if (token) {
+      headers.set('authorization', `Bearer ${token}`);
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  };
+
+  let response = await execute(memoryAccessToken);
+
+  const isAuthEndpoint = normalizedPath.startsWith('/auth/');
+  if (response.status === 401 && !isAuthEndpoint && !options.skipAuthRefresh) {
+    const refreshed = await refreshAccessTokenSilently();
+    if (refreshed) {
+      response = await execute(refreshed.accessToken);
+    }
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const isJson =
+    contentType.includes('application/json') || contentType.includes('application/problem+json');
+  const payload = isJson ? await response.json() : null;
+
+  if (!response.ok) {
+    const problem = (payload ?? {}) as Partial<ProblemDetails>;
+    throw new ApiClientError({
+      status: response.status,
+      code: problem.code ?? 'HTTP_ERROR',
+      detail:
+        problem.detail ??
+        'No fue posible completar la operación. Inténtalo de nuevo en unos segundos.',
+      errors: problem.errors,
+    });
+  }
+
+  return payload as T;
+}

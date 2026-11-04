@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-export type ButtonVariant = 'primary' | 'outline' | 'ghost';
-export type ButtonSize = 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
@@ -12,12 +12,15 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: 'bg-action text-action-text hover:bg-action-hover border border-transparent font-medium',
+  secondary:
+    'bg-surface-raised text-heading border border-border hover:bg-surface-hover font-medium',
   outline:
     'bg-transparent text-heading border border-border-ghost hover:bg-surface-hover font-normal',
   ghost: 'bg-transparent text-body border border-border hover:bg-surface-hover font-normal',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
+  sm: 'min-h-8 px-3 py-1.5 text-xs',
   md: 'min-h-11 px-4 py-2.5 text-sm',
   lg: 'min-h-12 px-6 py-3 text-base',
 };
