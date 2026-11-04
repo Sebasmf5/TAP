@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { DashboardHomePage, LoginPage, ProfilePage, UsersPage } from '../features/access/index.ts';
+import { EventsPage } from '../features/events/index.ts';
 import {
   OrganizationSettingsPage,
   PlatformOrganizationsPage,
   SitesPage,
 } from '../features/organizations/index.ts';
+import { PeoplePage } from '../features/people/index.ts';
 import { AuthProvider, useAuth } from '../shared/auth/auth-context.tsx';
 import { DesignSystemShowcasePage } from './DesignSystemShowcasePage.tsx';
 import { StaffLayout } from './layouts/StaffLayout.tsx';
@@ -43,6 +45,8 @@ export function App() {
               }
             >
               <Route index element={<DashboardHomePage />} />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="people" element={<PeoplePage />} />
               <Route path="organization" element={<OrganizationSettingsPage />} />
               <Route path="sites" element={<SitesPage />} />
               <Route path="users" element={<UsersPage />} />

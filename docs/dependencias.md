@@ -1,4 +1,4 @@
-# Justificación de dependencias (Fase 0 y Fase 1)
+# Justificación de dependencias (Fase 0, Fase 1 y Fase 2)
 
 Todas las dependencias están fijadas por `pnpm-lock.yaml` y obedecen al stack cerrado de `AGENTS.md` (A4).
 
@@ -45,11 +45,15 @@ Todas las dependencias están fijadas por `pnpm-lock.yaml` y obedecen al stack c
 | `pg`                                 | `8.23.1`          | MIT        | Cliente y pool de conexiones para PostgreSQL 17.                                                                           |
 | `pg-boss`                            | `12.38.0`         | MIT        | Cola de trabajos en segundo plano sobre PostgreSQL sin depender de Redis (`AGENTS.md` A4).                                 |
 | `pino`                               | `10.4.0`          | MIT        | Logger estructurado JSON con soporte de `requestId` y redacción de campos sensibles (`AGENTS.md` A4).                      |
+| `pdfkit`                             | `0.20.2`          | MIT        | Generación en servidor de afiches A4 en PDF de eventos y certificados sin navegador headless (`AGENTS.md` A4).             |
+| `qrcode`                             | `1.5.4`           | MIT        | Generación en servidor de códigos QR en PNG y SVG para afiches y carnés (`AGENTS.md` A4).                                  |
 | `zod`                                | `4.6.7`           | MIT        | Validación de configuración de entorno al arranque y esquemas HTTP.                                                        |
 | `drizzle-kit` _(dev)_                | `0.31.11`         | MIT        | Generador de migraciones SQL versionadas a partir de los esquemas de cada módulo.                                          |
 | `tsx` _(dev)_                        | `4.23.15`         | MIT        | Ejecución con recarga en desarrollo y CLI de migraciones.                                                                  |
 | `esbuild` _(dev)_                    | `0.28.2`          | MIT        | Empaquetado rápido del servidor en un único artefacto ESM para producción y Docker.                                        |
 | `@types/pg` _(dev)_                  | `8.23.1`          | MIT        | Tipos TypeScript para `pg`.                                                                                                |
+| `@types/pdfkit` _(dev)_              | `0.17.7`          | MIT        | Tipos TypeScript para `pdfkit`.                                                                                            |
+| `@types/qrcode` _(dev)_              | `1.5.6`           | MIT        | Tipos TypeScript para `qrcode`.                                                                                            |
 | `pino-pretty` _(dev)_                | `13.2.0`          | MIT        | Formateo legible de logs en desarrollo local.                                                                              |
 | `@testcontainers/postgresql` _(dev)_ | `12.2.1`          | MIT        | Contenedores efímeros de PostgreSQL real para pruebas de integración (`AGENTS.md` A8).                                     |
 

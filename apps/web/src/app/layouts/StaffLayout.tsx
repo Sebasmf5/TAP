@@ -56,6 +56,8 @@ export function StaffLayout() {
 
   if (user.organizationId) {
     navItems.push(
+      { to: '/app/events', label: 'Eventos y talleres', shortLabel: 'EV' },
+      { to: '/app/people', label: 'Participantes', shortLabel: 'PA' },
       { to: '/app/organization', label: 'Mi entidad', shortLabel: 'ME' },
       { to: '/app/sites', label: 'Sedes y puntos QR', shortLabel: 'SQ' },
     );

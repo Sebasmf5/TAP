@@ -121,3 +121,50 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   return payload as T;
 }
+
+/**
+ * Descarga un archivo binario (PDF, CSV, XLSX) autenticándose con cabecera Authorization Bearer
+ * sin exponer jamás el JWT en la URL (AGENTS.md A7.1).
+ */
+export async function apiDownloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${API_BASE_URL}${normalizedPath}`;
+
+  const execute = async (token: string | null): Promise<Response> => {
+    const headers = new Headers();
+    if (token) {
+      headers.set('authorization', `Bearer ${token}`);
+    }
+    return fetch(url, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+  };
+
+  let response = await execute(memoryAccessToken);
+  if (response.status === 401) {
+    const refreshed = await refreshAccessTokenSilently();
+    if (refreshed) {
+      response = await execute(refreshed.accessToken);
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiClientError({
+      status: response.status,
+      code: 'DOWNLOAD_ERROR',
+      detail: 'No fue posible descargar el archivo solicitado.',
+    });
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fallbackFilename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
