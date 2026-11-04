@@ -45,4 +45,6 @@ export const PaginationQuerySchema = z.object({
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
 
 export * from './access.ts';
+export * from './events.ts';
 export * from './organizations.ts';
+export * from './people.ts';

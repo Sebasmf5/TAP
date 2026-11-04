@@ -1,1 +1,100 @@
-export { peopleSchema, peopleTable } from './infrastructure/schema.ts';
+import type { ConsentChannel, DocumentType } from '@tap/contracts';
+import type { AuditLog, Clock, DrizzleExecutor, IdGenerator } from '../../shared/index.ts';
+import { PeopleService } from './application/use-cases.ts';
+import {
+  abbreviatePersonName,
+  maskDocumentNumber,
+  parseCsvPeople,
+  toPersonDto,
+  validateMinorGuardian,
+  type DataConsent,
+  type ParsedCsvPersonRow,
+  type Person,
+} from './domain/entities.ts';
+import type { PeopleRepository } from './domain/ports.ts';
+import { createPeopleRoutes, type AuthenticateRequestFn } from './http/routes.ts';
+import { DrizzlePeopleRepository, InMemoryPeopleRepository } from './infrastructure/repository.ts';
+import { consentsTable, peopleSchema, peopleTable } from './infrastructure/schema.ts';
+
+export interface PeopleModule {
+  readonly service: PeopleService;
+  readonly repository: PeopleRepository;
+  findById(organizationId: string, personId: string): Promise<Person | null>;
+  findByDocument(
+    organizationId: string,
+    documentNumber: string,
+    documentType?: DocumentType,
+  ): Promise<Person | null>;
+  findByInstitutionalCode(organizationId: string, code: string): Promise<Person | null>;
+  findByQrToken(organizationId: string, qrToken: string): Promise<Person | null>;
+  recordConsent(params: {
+    organizationId: string;
+    personId: string;
+    version: string;
+    channel: ConsentChannel;
+    ipHash?: string | null;
+  }): Promise<DataConsent>;
+  createRoutes(authenticate: AuthenticateRequestFn): ReturnType<typeof createPeopleRoutes>;
+}
+
+export function createPeopleModule(params: {
+  db?: DrizzleExecutor;
+  repository?: PeopleRepository;
+  idGenerator: IdGenerator;
+  clock: Clock;
+  auditLog: AuditLog;
+}): PeopleModule {
+  const repository =
+    params.repository ??
+    (params.db ? new DrizzlePeopleRepository(params.db) : new InMemoryPeopleRepository());
+
+  const service = new PeopleService({
+    repository,
+    idGenerator: params.idGenerator,
+    clock: params.clock,
+    auditLog: params.auditLog,
+  });
+
+  return {
+    service,
+    repository,
+    findById(organizationId: string, personId: string) {
+      return repository.findById(organizationId, personId);
+    },
+    findByDocument(organizationId: string, documentNumber: string, documentType?: DocumentType) {
+      return service.findByDocumentInternal(organizationId, documentNumber, documentType);
+    },
+    findByInstitutionalCode(organizationId: string, code: string) {
+      return service.findByInstitutionalCodeInternal(organizationId, code);
+    },
+    findByQrToken(organizationId: string, qrToken: string) {
+      return service.findByQrTokenInternal(organizationId, qrToken);
+    },
+    recordConsent(consentParams) {
+      return service.recordConsentInternal(consentParams);
+    },
+    createRoutes(authenticate: AuthenticateRequestFn) {
+      return createPeopleRoutes({ service, authenticate });
+    },
+  };
+}
+
+export {
+  DrizzlePeopleRepository,
+  InMemoryPeopleRepository,
+  PeopleService,
+  abbreviatePersonName,
+  consentsTable,
+  createPeopleRoutes,
+  maskDocumentNumber,
+  parseCsvPeople,
+  peopleSchema,
+  peopleTable,
+  toPersonDto,
+  validateMinorGuardian,
+  type AuthenticateRequestFn,
+  type DataConsent,
+  type ParsedCsvPersonRow,
+  type PeopleRepository,
+  type Person,
+};
