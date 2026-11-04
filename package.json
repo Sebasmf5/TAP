@@ -1,0 +1,45 @@
+{
+  "name": "tap",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tap: asistencia rápida, certificados, inventario y préstamos para eventos masivos",
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "setup:env": "node scripts/setup-env.ts",
+    "env:check": "node scripts/env-check.ts",
+    "dev": "pnpm --parallel --filter @tap/api --filter @tap/web run dev",
+    "build": "pnpm -r run build",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.scripts.json && pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "db:generate": "pnpm --filter @tap/api run db:generate",
+    "db:migrate": "pnpm --filter @tap/api run db:migrate",
+    "check:secrets": "node scripts/check-secrets.ts",
+    "check:bundle": "pnpm --filter @tap/web run build && node scripts/check-bundle.ts",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:secrets && pnpm check:bundle"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.14.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  }
+}

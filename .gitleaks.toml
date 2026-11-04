@@ -1,0 +1,17 @@
+title = "Tap: escaneo de secretos"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Archivos locales ignorados por git (contienen secretos de desarrollo por diseño) y artefactos generados"
+paths = [
+  '''(^|[\\/])\.env$''',
+  '''(^|[\\/])\.env\.(local|development|production|test)$''',
+  '''(^|[\\/])node_modules[\\/]''',
+  '''(^|[\\/])\.git[\\/]''',
+  '''(^|[\\/])dist[\\/]''',
+  '''(^|[\\/])coverage[\\/]''',
+  '''(^|[\\/])storage[\\/]''',
+  '''pnpm-lock\.yaml$''',
+]

@@ -1,0 +1,5 @@
+if grep -Eqi "co-authored-by|claude|copilot|gemini|openai|chatgpt|antigravity|cursor" "$1"; then
+  echo "Error: El mensaje de commit no puede contener Co-Authored-By ni referencias a herramientas externas." >&2
+  exit 1
+fi
+pnpm exec commitlint --edit "$1"

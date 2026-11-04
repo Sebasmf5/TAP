@@ -1,0 +1,54 @@
+# --- Secretos y entorno ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+secrets/
+
+# --- Datos de ejecución (subidas, PDF generados, reportes) ---
+storage/
+uploads/
+
+# --- Volúmenes y datos locales de Docker ---
+docker/data/
+.docker-data/
+pgdata/
+docker-compose.override.yml
+
+# --- Volcados de base de datos ---
+*.sql.gz
+*.dump
+*.backup
+
+# --- Dependencias y artefactos de build ---
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+.turbo/
+.eslintcache
+
+# --- Pruebas ---
+coverage/
+playwright-report/
+test-results/
+blob-report/
+k6-results/
+
+# --- Registros ---
+*.log
+logs/
+gitleaks-report.*
+
+# --- Sistema operativo y editores ---
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
