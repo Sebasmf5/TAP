@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Calidad, pruebas, secretos y bundle
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tap_app
+          POSTGRES_PASSWORD: ci_ephemeral_db_password_only
+          POSTGRES_DB: tap
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd="pg_isready -U tap_app -d tap"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar gitleaks
+        run: |
+          GITLEAKS_VERSION=8.30.1
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Configurar Node.js 24 LTS y Corepack
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Activar pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.16.1 --activate
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar entorno efímero sin secretos reales
+        run: |
+          pnpm setup:env
+          pnpm env:check
+
+      - name: Verificar todo con pnpm check
+        run: pnpm check
