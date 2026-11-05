@@ -9,8 +9,6 @@
 
 - El campo `retention_days` está modelado en `organizations.organizations` desde la Fase 0. El trabajo programado de purga/anonimización automática al vencer dicho plazo queda registrado como pendiente documentado conforme a `AGENTS.md` A7.4.
 
-## 3. Verificación de Docker Desktop y PostgreSQL 17 en este equipo
+## 3. Verificación de Docker Desktop y PostgreSQL 17
 
-- Docker Desktop 28.0.4 verificado y operativo.
-- Las pruebas de integración (`pnpm --filter @tap/api run test:integration`) y las pruebas de extremo a extremo (`pnpm test:e2e`) se ejecutan contra contenedores reales de `postgres:17-alpine` mediante Testcontainers, aplicando automáticamente las migraciones 0000 a 0003 y verificando la persistencia y la idempotencia.
-- **Nota de puerto en Windows:** En algunos entornos Windows el puerto TCP 5432 puede encontrarse reservado por rangos de exclusión del hipervisor (WinNAT / Hyper-V). Para `docker compose up -d db`, se puede especificar un puerto libre mediante variable de entorno (ej: `POSTGRES_PORT=5433`). Testcontainers asigna automáticamente puertos efímeros libres sin conflicto.
+- Las pruebas de integración (`pnpm --filter @tap/api run test:integration`) y las pruebas de extremo a extremo (`pnpm test:e2e`) se ejecutan contra contenedores reales de `postgres:17-alpine` mediante Testcontainers, aplicando automáticamente las migraciones `0000` a `0005` y verificando la persistencia, el aislamiento multi-tenant y la idempotencia en todos los módulos.
