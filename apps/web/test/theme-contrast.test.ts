@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { THEME_TOKENS, type ThemeMode } from '../src/app/theme/palette.ts';
+import { THEME_TOKENS, type ThemeMode } from '../src/shared/theme/palette.ts';
 import { contrastRatio } from '../src/shared/lib/contrast.ts';
 
 describe('Contraste WCAG 2.2 AA de los tokens en ambos temas (AGENTS.md A9)', () => {

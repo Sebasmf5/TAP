@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { DashboardHomePage, LoginPage, ProfilePage, UsersPage } from '../features/access/index.ts';
+import { EventAttendancePage, PublicCheckinPage } from '../features/attendance/index.ts';
 import { EventsPage } from '../features/events/index.ts';
 import {
   OrganizationSettingsPage,
@@ -11,7 +12,7 @@ import { PeoplePage } from '../features/people/index.ts';
 import { AuthProvider, useAuth } from '../shared/auth/auth-context.tsx';
 import { DesignSystemShowcasePage } from './DesignSystemShowcasePage.tsx';
 import { StaffLayout } from './layouts/StaffLayout.tsx';
-import { ThemeProvider } from './theme/ThemeProvider.tsx';
+import { ThemeProvider } from '../shared/theme/ThemeProvider.tsx';
 
 function RequireAuth({ children }: { readonly children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -35,6 +36,7 @@ export function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/c/:code" element={<PublicCheckinPage />} />
             <Route path="/design-system" element={<DesignSystemShowcasePage />} />
             <Route
               path="/app"
@@ -46,6 +48,7 @@ export function App() {
             >
               <Route index element={<DashboardHomePage />} />
               <Route path="events" element={<EventsPage />} />
+              <Route path="events/:id/attendance" element={<EventAttendancePage />} />
               <Route path="people" element={<PeoplePage />} />
               <Route path="organization" element={<OrganizationSettingsPage />} />
               <Route path="sites" element={<SitesPage />} />

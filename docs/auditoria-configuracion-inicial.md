@@ -173,13 +173,16 @@ Salida de `pnpm env:check`:
 
 ## 7. Configuración de seguridad: Cookies, CORS, Helmet y JWT
 
-- **Cookies de refresco:** preparadas para emitirse con `HttpOnly; SameSite=Strict; Path=/api/v1/auth` y flag `Secure` gobernado por `COOKIE_SECURE` (`true` en producción). Gracias al proxy `/api` en Vite (desarrollo) y Nginx (producción), web y API comparten el mismo sitio (`SameSite=Strict`).
+- **Cookies de refresco:** emitidas con `HttpOnly; SameSite=Strict; Path=/api/v1/auth` y flag `Secure` gobernado por `COOKIE_SECURE` (`true` en producción). Gracias al proxy `/api` en Vite (desarrollo) y Nginx (producción), web y API comparten el mismo sitio (`SameSite=Strict`), impidiendo ataques CSRF sin requerir tokens adicionales.
+- **Rutas públicas vs autenticadas:**
+  - Rutas públicas (`/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/google`, `/api/v1/attendance/public/lookup`, `/api/v1/attendance/public/checkin`, `/c/:code`, `/p/:code`, `/v/:code`): no exigen JWT, aplican rate limiting estricto o por IP + evento, y jamás exponen datos personales completos.
+  - Rutas privadas de funcionario (`/api/v1/events/*`, `/api/v1/organizations/*`, `/api/v1/people/*`, `/api/v1/attendance/events/*`): exigen token de acceso en cabecera `Authorization: Bearer`, validan rol y pertenencia de entidad (`organization_id`), con revocación por inactividad comprobada cada 60 s.
 - **CORS (`@fastify/cors`):** lista blanca estricta tomada de `CORS_ALLOWED_ORIGINS` (separada por comas y validada con Zod al arrancar). Cualquier origen fuera de la lista es rechazado.
 - **Helmet (`@fastify/helmet`):** activo en todas las respuestas con `Content-Security-Policy` restrictiva (`default-src 'self'`, `script-src 'self'`, `style-src 'self'`, `img-src 'self' data: blob:`, `object-src 'none'`, `frame-ancestors 'none'`) y `Cross-Origin-Resource-Policy: same-origin`.
 - **JWT (algoritmo y vigencias, sin claves):**
-  - Algoritmo de firma: `EdDSA` sobre curva `Ed25519` (par PKCS#8 / SPKI generado por `pnpm setup:env`).
+  - Algoritmo de firma: `EdDSA` sobre curva `Ed25519` (par PKCS#8 / SPKI generado por `pnpm setup:env`). Lista blanca que rechaza terminantemente `none` y firmas simétricas.
   - Vigencia del token de acceso (`JWT_ACCESS_TTL`): `15m` (en memoria del cliente, nunca en `localStorage`).
-  - Vigencia del token de refresco (`JWT_REFRESH_TTL_DAYS`): `7` días por rotación (tope absoluto de 30 días en Fase 1).
+  - Vigencia del token de refresco (`JWT_REFRESH_TTL_DAYS`): `7` días por rotación (almacenando solo el hash SHA-256 en base de datos con detección de reutilización y revocación en cascada de la familia de tokens).
   - Emisor (`JWT_ISSUER`): `tap-api`; Audiencia (`JWT_AUDIENCE`): `tap-web`.
 
 ---

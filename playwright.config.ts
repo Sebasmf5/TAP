@@ -5,7 +5,6 @@ const e2eAdminPassword =
   process.env['E2E_ADMIN_PASSWORD'] ?? `ClaveE2ESegura#${randomBytes(6).toString('hex')}`;
 process.env['E2E_ADMIN_PASSWORD'] = e2eAdminPassword;
 
-const e2eDbPass = randomBytes(16).toString('hex');
 const { privateKey, publicKey } = generateKeyPairSync('ed25519', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   publicKeyEncoding: { type: 'spki', format: 'pem' },
@@ -29,21 +28,16 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'node apps/api/src/main.ts',
+      command: 'node apps/api/scripts/e2e-runner.ts',
       url: 'http://127.0.0.1:3000/health',
       reuseExistingServer: !process.env['CI'],
       env: {
         NODE_ENV: 'development',
-        TAP_IN_MEMORY: 'true',
         APP_URL: 'http://127.0.0.1:5173',
         API_HOST: '127.0.0.1',
         API_PORT: '3000',
         CORS_ALLOWED_ORIGINS: 'http://127.0.0.1:5173,http://localhost:5173',
         LOG_LEVEL: 'warn',
-        POSTGRES_USER: 'tap_app',
-        POSTGRES_PASSWORD: e2eDbPass,
-        POSTGRES_DB: 'tap',
-        DATABASE_URL: `postgres://tap_app:${e2eDbPass}@127.0.0.1:5432/tap`,
         JWT_ISSUER: 'tap-api',
         JWT_AUDIENCE: 'tap-web',
         JWT_ACCESS_TTL: '15m',

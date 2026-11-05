@@ -59,5 +59,21 @@ jobs:
           pnpm setup:env
           pnpm env:check
 
-      - name: Verificar todo con pnpm check
+      - name: Verificar calidad, tipos, pruebas unitarias y bundle con pnpm check
         run: pnpm check
+
+      - name: Pruebas de integración contra PostgreSQL real
+        run: pnpm --filter @tap/api run test:integration
+        env:
+          TEST_DATABASE_ADMIN_URL: postgres://tap_app:ci_ephemeral_db_password_only@127.0.0.1:5432/tap
+
+      - name: Instalar navegadores de Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Pruebas E2E contra PostgreSQL real
+        run: pnpm test:e2e
+        env:
+          DATABASE_URL: postgres://tap_app:ci_ephemeral_db_password_only@127.0.0.1:5432/tap
+          POSTGRES_USER: tap_app
+          POSTGRES_PASSWORD: ci_ephemeral_db_password_only
+          POSTGRES_DB: tap
