@@ -1,0 +1,121 @@
+import type {
+  NotificationChannelType,
+  NotificationStatus,
+  NotificationTemplateKey,
+} from '@tap/contracts';
+
+export interface NotificationRecord {
+  id: string;
+  organizationId: string;
+  channel: NotificationChannelType;
+  template: NotificationTemplateKey;
+  recipient: string;
+  subject: string;
+  payload: Record<string, unknown>;
+  status: NotificationStatus;
+  attempts: number;
+  lastError: string | null;
+  relatedEntityType: string | null;
+  relatedEntityId: string | null;
+  deduplicationKey: string;
+  sentAt: Date | null;
+  createdAt: Date;
+}
+
+export interface NotificationTemplateRecord {
+  id: string;
+  organizationId: string;
+  templateKey: NotificationTemplateKey;
+  subjectTemplate: string;
+  htmlTemplate: string;
+  textTemplate: string;
+  updatedAt: Date;
+}
+
+export interface OutboundNotificationMessage {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Patrón Strategy + Adapter para canales de notificación (`AGENTS.md` A6, B1.9).
+ */
+export interface NotificationChannel {
+  readonly channelType: NotificationChannelType;
+  send(message: OutboundNotificationMessage): Promise<void>;
+}
+
+export interface DefaultTemplateDefinition {
+  subjectTemplate: string;
+  htmlTemplate: string;
+  textTemplate: string;
+}
+
+export const DEFAULT_NOTIFICATION_TEMPLATES: Record<
+  NotificationTemplateKey,
+  DefaultTemplateDefinition
+> = {
+  certificate_issued: {
+    subjectTemplate: 'Tu certificado de participación: {{event_name}} — {{organization_name}}',
+    htmlTemplate: `<!DOCTYPE html>
+<html lang="es-CO">
+  <body style="font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; color: #061b31; background: #f8fafd; padding: 24px;">
+    <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #e5edf5; border-radius: 4px; padding: 28px;">
+      <p style="font-size: 12px; color: #64748d; margin: 0 0 8px 0;">{{organization_name}}</p>
+      <h1 style="font-size: 20px; font-weight: 500; margin: 0 0 16px 0; color: #061b31;">Certificado emitido</h1>
+      <p style="font-size: 14px; line-height: 1.5; color: #273951;">Hola <strong>{{holder_name}}</strong>,</p>
+      <p style="font-size: 14px; line-height: 1.5; color: #273951;">
+        Tu certificado de participación en <strong>{{event_name}}</strong> ({{hours}} horas) ha sido emitido.
+      </p>
+      <p style="font-size: 13px; color: #273951;">
+        Código público de verificación: <code style="font-family: monospace; background: #f8fafd; padding: 2px 6px; border: 1px solid #e5edf5;">{{certificate_code}}</code>
+      </p>
+      <p style="margin: 24px 0;">
+        <a href="{{verification_url}}" style="display: inline-block; background: #533afd; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+          Verificar certificado en línea
+        </a>
+      </p>
+      <p style="font-size: 12px; color: #64748d; margin-top: 24px;">
+        Este mensaje fue generado automáticamente por Tap para {{organization_name}}.
+      </p>
+    </div>
+  </body>
+</html>`,
+    textTemplate:
+      '{{organization_name}} — Hola {{holder_name}}, tu certificado de participación en "{{event_name}}" ({{hours}} horas) ha sido emitido. Código de verificación: {{certificate_code}}. Verifícalo en: {{verification_url}}',
+  },
+  loan_delivered: {
+    subjectTemplate: 'Comprobante de préstamo de implementos — {{organization_name}}',
+    htmlTemplate: `<p>Hola <strong>{{holder_name}}</strong>, se registró la entrega de tu préstamo en <strong>{{organization_name}}</strong>. Fecha límite de devolución: {{due_at}}.</p>`,
+    textTemplate:
+      'Hola {{holder_name}}, se registró la entrega de tu préstamo en {{organization_name}}. Fecha límite de devolución: {{due_at}}.',
+  },
+  loan_overdue: {
+    subjectTemplate: 'Recordatorio: préstamo pendiente de devolución — {{organization_name}}',
+    htmlTemplate: `<p>Hola <strong>{{holder_name}}</strong>, tienes un préstamo vencido en <strong>{{organization_name}}</strong> ({{item_summary}}). Por favor acércate al punto de préstamo para realizar la devolución.</p>`,
+    textTemplate:
+      'Hola {{holder_name}}, tienes un préstamo vencido en {{organization_name}} ({{item_summary}}). Por favor acércate al punto de préstamo para realizar la devolución.',
+  },
+  loan_returned: {
+    subjectTemplate: 'Paz y salvo de devolución de implementos — {{organization_name}}',
+    htmlTemplate: `<p>Hola <strong>{{holder_name}}</strong>, confirmamos la devolución de los implementos prestados en <strong>{{organization_name}}</strong>. ¡Gracias!</p>`,
+    textTemplate:
+      'Hola {{holder_name}}, confirmamos la devolución de los implementos prestados en {{organization_name}}. ¡Gracias!',
+  },
+};
+
+export function interpolateNotificationTemplate(
+  raw: string,
+  variables: Record<string, unknown>,
+): string {
+  return raw.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key: string) => {
+    const val = variables[key];
+    if (val === undefined || val === null) {
+      return '';
+    }
+    return String(val);
+  });
+}
