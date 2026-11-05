@@ -1,4 +1,4 @@
-import type { ConsentChannel, DocumentType } from '@tap/contracts';
+import type { ConsentChannel, DocumentType, PersonType } from '@tap/contracts';
 import type { AuditLog, Clock, DrizzleExecutor, IdGenerator } from '../../shared/index.ts';
 import { PeopleService } from './application/use-cases.ts';
 import {
@@ -34,6 +34,23 @@ export interface PeopleModule {
     channel: ConsentChannel;
     ipHash?: string | null;
   }): Promise<DataConsent>;
+  registerPublicWalkInPerson(params: {
+    organizationId: string;
+    documentType: DocumentType;
+    documentNumber: string;
+    fullName: string;
+    institutionalCode?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    personType?: PersonType;
+    isMinor: boolean;
+    guardianName?: string | null;
+    guardianDocument?: string | null;
+    guardianPhone?: string | null;
+    consentVersion: string;
+    channel: ConsentChannel;
+    ipHash?: string | null;
+  }): Promise<Person>;
   createRoutes(authenticate: AuthenticateRequestFn): ReturnType<typeof createPeopleRoutes>;
 }
 
@@ -72,6 +89,9 @@ export function createPeopleModule(params: {
     },
     recordConsent(consentParams) {
       return service.recordConsentInternal(consentParams);
+    },
+    registerPublicWalkInPerson(walkInParams) {
+      return service.registerPublicWalkInPersonInternal(walkInParams);
     },
     createRoutes(authenticate: AuthenticateRequestFn) {
       return createPeopleRoutes({ service, authenticate });

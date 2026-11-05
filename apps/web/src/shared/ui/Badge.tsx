@@ -1,9 +1,9 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Minus } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 export type BadgeStatus = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
 
-export interface BadgeProps {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   readonly status?: BadgeStatus;
   readonly children: ReactNode;
 }
@@ -34,14 +34,18 @@ const STATUS_STYLES: Record<BadgeStatus, { classes: string; Icon: typeof Info }>
 /**
  * Etiqueta de estado: siempre acompaña el color con un icono y texto explícito (AGENTS.md A9).
  */
-export function Badge({ status = 'info', children }: BadgeProps) {
+export function Badge({ status = 'info', children, className, ...rest }: BadgeProps) {
   const { classes, Icon } = STATUS_STYLES[status];
   return (
     <span
       className={[
         'inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-0.5 text-xs font-normal',
         classes,
-      ].join(' ')}
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      {...rest}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span>{children}</span>

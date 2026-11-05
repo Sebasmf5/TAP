@@ -32,6 +32,8 @@ import { eventSessionsTable, eventsSchema, eventsTable } from './infrastructure/
 export interface EventsModule {
   readonly service: EventsService;
   readonly repository: EventsRepository;
+  findByPublicCode(publicCode: string): Promise<EventEntity | null>;
+  findById(organizationId: string, eventId: string): Promise<EventEntity | null>;
   getEventByPublicCode(publicCode: string): Promise<EventDto | null>;
   getEventById(organizationId: string, eventId: string): Promise<EventDto | null>;
   processScheduledTransitions(): Promise<{ openedCount: number; closedCount: number }>;
@@ -69,6 +71,12 @@ export function createEventsModule(params: {
   return {
     service,
     repository,
+    findByPublicCode(publicCode: string) {
+      return service.findByPublicCodeInternal(publicCode);
+    },
+    findById(organizationId: string, eventId: string) {
+      return service.findByIdInternal(organizationId, eventId);
+    },
     async getEventByPublicCode(publicCode: string) {
       const event = await service.findByPublicCodeInternal(publicCode);
       return event ? toEventDto(event) : null;

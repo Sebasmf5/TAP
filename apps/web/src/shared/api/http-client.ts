@@ -168,3 +168,85 @@ export async function apiDownloadFile(path: string, fallbackFilename: string): P
   link.remove();
   URL.revokeObjectURL(objectUrl);
 }
+
+/**
+ * Conecta a un flujo continuo Server-Sent Events (SSE) usando `fetch` con streaming y
+ * cabecera `Authorization: Bearer` (sin usar EventSource ni poner jamás el JWT en la URL, AGENTS.md A7.1).
+ */
+export function subscribeServerSentEvents<T>(params: {
+  path: string;
+  onMessage: (data: T) => void;
+  onError?: (err: unknown) => void;
+}): () => void {
+  const abortController = new AbortController();
+  const normalizedPath = params.path.startsWith('/') ? params.path : `/${params.path}`;
+  const url = `${API_BASE_URL}${normalizedPath}`;
+
+  void (async () => {
+    try {
+      const execute = async (token: string | null) => {
+        const headers = new Headers({
+          Accept: 'text/event-stream',
+        });
+        if (token) {
+          headers.set('authorization', `Bearer ${token}`);
+        }
+        return fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+          signal: abortController.signal,
+        });
+      };
+
+      let response = await execute(memoryAccessToken);
+      if (response.status === 401) {
+        const refreshed = await refreshAccessTokenSilently();
+        if (refreshed) {
+          response = await execute(refreshed.accessToken);
+        }
+      }
+
+      if (!response.ok || !response.body) {
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!abortController.signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() ?? '';
+
+        for (const chunk of chunks) {
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              const rawJson = line.slice(5).trim();
+              if (rawJson) {
+                try {
+                  params.onMessage(JSON.parse(rawJson) as T);
+                } catch {
+                  // Ignorar fragmento malformado
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (!abortController.signal.aborted) {
+        params.onError?.(err);
+      }
+    }
+  })();
+
+  return () => {
+    abortController.abort();
+  };
+}

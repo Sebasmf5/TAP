@@ -6,6 +6,7 @@ import type {
   ImportPeopleResponse,
   ImportPreviewRow,
   PersonDto,
+  PersonType,
   UpdatePersonRequest,
 } from '@tap/contracts';
 import {
@@ -370,5 +371,73 @@ export class PeopleService {
     };
     await this.repository.recordConsent(consent);
     return consent;
+  }
+
+  async registerPublicWalkInPersonInternal(params: {
+    organizationId: string;
+    documentType: DocumentType;
+    documentNumber: string;
+    fullName: string;
+    institutionalCode?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    personType?: PersonType;
+    isMinor: boolean;
+    guardianName?: string | null;
+    guardianDocument?: string | null;
+    guardianPhone?: string | null;
+    consentVersion: string;
+    channel: ConsentChannel;
+    ipHash?: string | null;
+  }): Promise<Person> {
+    validateMinorGuardian({
+      isMinor: params.isMinor,
+      guardianName: params.guardianName,
+      guardianPhone: params.guardianPhone,
+    });
+
+    const docNumber = params.documentNumber.trim();
+    const existing = await this.repository.findByDocument(
+      params.organizationId,
+      docNumber,
+      params.documentType,
+    );
+
+    const now = this.clock.now();
+    let person: Person;
+
+    if (existing) {
+      person = existing;
+    } else {
+      person = {
+        id: this.idGenerator.nextId(),
+        organizationId: params.organizationId,
+        documentType: params.documentType,
+        documentNumber: docNumber,
+        institutionalCode: params.institutionalCode?.trim() || null,
+        fullName: params.fullName.trim(),
+        email: params.email?.trim().toLowerCase() || null,
+        phone: params.phone?.trim() || null,
+        personType: params.personType ?? 'student',
+        isMinor: params.isMinor,
+        guardianName: params.guardianName?.trim() || null,
+        guardianDocument: params.guardianDocument?.trim() || null,
+        guardianPhone: params.guardianPhone?.trim() || null,
+        qrToken: generatePublicCode(12),
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.repository.create(person);
+    }
+
+    await this.recordConsentInternal({
+      organizationId: params.organizationId,
+      personId: person.id,
+      version: params.consentVersion,
+      channel: params.channel,
+      ipHash: params.ipHash ?? null,
+    });
+
+    return person;
   }
 }

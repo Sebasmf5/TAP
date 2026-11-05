@@ -1,5 +1,6 @@
 import type { EventDto, EventQrResponse, EventStatus, EventType } from '@tap/contracts';
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { ApiClientError, apiDownloadFile, apiRequest } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
 import {
@@ -220,6 +221,11 @@ export function EventsPage() {
       align: 'right',
       render: (row) => (
         <div className="inline-flex items-center gap-2">
+          <Link to={`/app/events/${row.id}/attendance`}>
+            <Button type="button" variant="outline" size="sm">
+              Asistencia en vivo
+            </Button>
+          </Link>
           <Button
             type="button"
             variant="outline"

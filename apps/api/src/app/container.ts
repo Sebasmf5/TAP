@@ -8,6 +8,11 @@ import {
   type PasswordHasher,
 } from '../modules/access/index.ts';
 import {
+  createAttendanceModule,
+  type AttendanceModule,
+  type AttendanceRepository,
+} from '../modules/attendance/index.ts';
+import {
   createEventsModule,
   type EventPosterRenderer,
   type EventsModule,
@@ -59,6 +64,7 @@ export interface AppContainer {
   readonly accessModule: AccessModule;
   readonly peopleModule: PeopleModule;
   readonly eventsModule: EventsModule;
+  readonly attendanceModule: AttendanceModule;
   seedInitialData(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -78,6 +84,7 @@ export function createAppContainer(params: {
   accessRepository?: AccessRepository;
   peopleRepository?: PeopleRepository;
   eventsRepository?: EventsRepository;
+  attendanceRepository?: AttendanceRepository;
   posterRenderer?: EventPosterRenderer;
   passwordHasher?: PasswordHasher;
   jwtService?: JwtTokenService;
@@ -152,6 +159,32 @@ export function createAppContainer(params: {
     },
   });
 
+  const attendanceModule = createAttendanceModule({
+    db: useInMemory ? undefined : database.db,
+    repository: params.attendanceRepository,
+    idGenerator,
+    clock,
+    eventBus,
+    auditLog,
+    findEventByPublicCode: (publicCode) => eventsModule.findByPublicCode(publicCode),
+    findEventById: (organizationId, eventId) => eventsModule.findById(organizationId, eventId),
+    findOrganizationById: (organizationId) =>
+      organizationsModule.service.getByIdInternal(organizationId),
+    assertFeatureEnabled: (organizationId, feature) =>
+      organizationsModule.requireFeature(organizationId, feature),
+    personGateway: {
+      findById: (organizationId, personId) => peopleModule.findById(organizationId, personId),
+      findByDocument: (organizationId, documentNumber, documentType) =>
+        peopleModule.findByDocument(organizationId, documentNumber, documentType),
+      findByInstitutionalCode: (organizationId, code) =>
+        peopleModule.findByInstitutionalCode(organizationId, code),
+      findByQrToken: (organizationId, qrToken) =>
+        peopleModule.findByQrToken(organizationId, qrToken),
+      registerPublicWalkInPerson: (walkInParams) =>
+        peopleModule.registerPublicWalkInPerson(walkInParams),
+    },
+  });
+
   async function seedInitialData(): Promise<void> {
     const existingOrg = await organizationsModule.getOrganizationBySlug('bienestar-piloto');
     const now = clock.now();
@@ -221,6 +254,7 @@ export function createAppContainer(params: {
     accessModule,
     peopleModule,
     eventsModule,
+    attendanceModule,
     seedInitialData,
     async start(): Promise<void> {
       await jobQueue.start();
