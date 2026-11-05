@@ -46,6 +46,11 @@ export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
 
 export * from './access.ts';
 export * from './attendance.ts';
+export * from './certificates.ts';
 export * from './events.ts';
+export * from './inventory.ts';
+export * from './loans.ts';
+export * from './notifications.ts';
 export * from './organizations.ts';
 export * from './people.ts';
+export * from './reports.ts';

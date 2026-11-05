@@ -57,7 +57,12 @@ export function StaffLayout() {
   if (user.organizationId) {
     navItems.push(
       { to: '/app/events', label: 'Eventos y talleres', shortLabel: 'EV' },
+      { to: '/app/certificates', label: 'Certificados', shortLabel: 'CE' },
+      { to: '/app/inventory', label: 'Inventario QR', shortLabel: 'IN' },
+      { to: '/app/loans', label: 'Préstamos y mora', shortLabel: 'PR' },
+      { to: '/app/reports', label: 'Estadísticas y reportes', shortLabel: 'RE' },
       { to: '/app/people', label: 'Participantes', shortLabel: 'PA' },
+      { to: '/app/notifications', label: 'Notificaciones', shortLabel: 'NO' },
       { to: '/app/organization', label: 'Mi entidad', shortLabel: 'ME' },
       { to: '/app/sites', label: 'Sedes y puntos QR', shortLabel: 'SQ' },
     );

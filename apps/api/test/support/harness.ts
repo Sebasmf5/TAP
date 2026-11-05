@@ -166,6 +166,8 @@ export async function createHarness(
     posterRenderer,
   });
 
+  await container.notificationsModule.registerWorkers();
+
   cleanups.push(async () => {
     await container.stop();
     if (dropDatabase) await dropDatabase();
