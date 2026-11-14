@@ -110,7 +110,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     });
   };
 
-  let response = await execute(memoryAccessToken);
+  let response: Response;
+  try {
+    response = await execute(memoryAccessToken);
+  } catch (networkError) {
+    if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
+      enableDemoMode(false);
+      return handleDemoRequest<T>(normalizedPath, options.method ?? 'GET', options.body);
+    }
+    throw networkError;
+  }
 
   const isAuthEndpoint = normalizedPath.startsWith('/auth/');
   if (response.status === 401 && !isAuthEndpoint && !options.skipAuthRefresh) {
