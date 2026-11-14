@@ -8,6 +8,8 @@ export interface SmtpChannelConfig {
   user?: string;
   password?: string;
   from: string;
+  logger?: Logger;
+  fallbackToLogInDev?: boolean;
 }
 
 /**
@@ -17,13 +19,17 @@ export class EmailNotificationChannel implements NotificationChannel {
   public readonly channelType = 'email' as const;
   private readonly transporter: Transporter;
   private readonly from: string;
+  private readonly logger?: Logger;
+  private readonly fallbackToLogInDev: boolean;
 
   public constructor(config: SmtpChannelConfig) {
     this.from = config.from;
+    this.logger = config.logger;
+    this.fallbackToLogInDev = config.fallbackToLogInDev ?? false;
     this.transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
-      secure: false,
+      secure: config.port === 465,
       auth:
         config.user && config.password
           ? {
@@ -37,13 +43,24 @@ export class EmailNotificationChannel implements NotificationChannel {
   }
 
   public async send(message: OutboundNotificationMessage): Promise<void> {
-    await this.transporter.sendMail({
-      from: this.from,
-      to: message.to,
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+      });
+    } catch (err) {
+      if (this.fallbackToLogInDev) {
+        this.logger?.warn(
+          { err, subject: message.subject },
+          'Servidor SMTP no disponible en desarrollo; notificación registrada localmente',
+        );
+        return;
+      }
+      throw err;
+    }
   }
 }
 

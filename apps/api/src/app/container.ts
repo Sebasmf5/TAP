@@ -35,6 +35,7 @@ import {
   type LoansRepository,
 } from '../modules/loans/index.ts';
 import {
+  EmailNotificationChannel,
   LogNotificationChannel,
   createNotificationsModule,
   type NotificationChannel,
@@ -224,10 +225,23 @@ export function createAppContainer(params: {
   // Referencia diferida para la entrega de certificados
   const certificatesModuleHolder: { current?: CertificatesModule } = {};
 
+  const defaultNotificationChannel: NotificationChannel =
+    params.config.NODE_ENV !== 'test' && params.config.SMTP_HOST
+      ? new EmailNotificationChannel({
+          host: params.config.SMTP_HOST,
+          port: params.config.SMTP_PORT,
+          user: params.config.SMTP_USER || undefined,
+          password: params.config.SMTP_PASSWORD || undefined,
+          from: params.config.SMTP_FROM,
+          logger: params.logger,
+          fallbackToLogInDev: params.config.NODE_ENV === 'development',
+        })
+      : new LogNotificationChannel(params.logger);
+
   const notificationsModule = createNotificationsModule({
     db: useInMemory ? undefined : database.db,
     repository: params.notificationsRepository,
-    channel: params.notificationChannel ?? new LogNotificationChannel(params.logger),
+    channel: params.notificationChannel ?? defaultNotificationChannel,
     jobQueue,
     eventBus,
     idGenerator,

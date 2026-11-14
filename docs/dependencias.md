@@ -64,18 +64,19 @@ Todas las dependencias están fijadas por `pnpm-lock.yaml` y obedecen al stack c
 
 ## `apps/web`
 
-| Paquete                                     | Versión instalada  | Licencia | Qué resuelve y por qué se eligió                                                                                       |
-| ------------------------------------------- | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `react` / `react-dom`                       | `19.3.1`           | MIT      | Biblioteca de interfaz de usuario del frontend (`AGENTS.md` A4).                                                       |
-| `react-router`                              | `8.5.1`            | MIT      | Enrutamiento cliente para vistas públicas (`/c/:code`, `/p/:code`, `/v/:code`) y panel del funcionario.                |
-| `@tanstack/react-query`                     | `5.105.3`          | MIT      | Caché y sincronización de estado del servidor en el panel (`AGENTS.md` A4).                                            |
-| `react-hook-form` / `@hookform/resolvers`   | `7.91.0` / `7.0.2` | MIT      | Formularios controlados validados con esquemas Zod compartidos (`AGENTS.md` A4).                                       |
-| `qrcode` / `@types/qrcode` _(dev)_          | `1.5.4` / `1.5.6`  | MIT      | Generación en cliente del cartel QR imprimible de cada sede (`/p/:loanPointCode`) y de eventos (`AGENTS.md` A4).       |
-| `recharts`                                  | `3.10.1`           | MIT      | Biblioteca de gráficos declarativos sobre SVG exigida en `AGENTS.md` A4.                                               |
-| `signature_pad`                             | `5.1.4`            | MIT      | Lienzo de firma manuscrita digital en HTML5 Canvas para solicitudes públicas de préstamo (`/p/:code`, `AGENTS.md` A4). |
-| `lucide-react`                              | `1.67.0`           | ISC      | Iconografía lineal geométrica para acompañar estados con icono + texto (`AGENTS.md` A9).                               |
-| `@fontsource-variable/inter`                | `5.3.0`            | OFL-1.1  | Tipografía principal Inter Variable autoalojada, sin CDN (`AGENTS.md` A9).                                             |
-| `@fontsource-variable/jetbrains-mono`       | `5.3.0`            | OFL-1.1  | Tipografía monoespaciada autoalojada para códigos públicos, documentos y certificados (`AGENTS.md` A9).                |
-| `vite` / `@vitejs/plugin-react` _(dev)_     | `8.3.5` / `6.2.1`  | MIT      | Servidor de desarrollo con proxy `/api` y empaquetador de producción.                                                  |
-| `tailwindcss` / `@tailwindcss/vite` _(dev)_ | `4.3.4`            | MIT      | Motor de estilos conectado al sistema de tokens semánticos (`@theme inline`) de `tokens.css` (`AGENTS.md` A4, A9).     |
-| `@types/react` / `@types/react-dom` _(dev)_ | `19.3.0`           | MIT      | Definiciones de tipos para React 19.                                                                                   |
+| Paquete                                     | Versión instalada  | Licencia   | Qué resuelve y por qué se eligió                                                                                             |
+| ------------------------------------------- | ------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `react` / `react-dom`                       | `19.3.1`           | MIT        | Biblioteca de interfaz de usuario del frontend (`AGENTS.md` A4).                                                             |
+| `react-router`                              | `8.5.1`            | MIT        | Enrutamiento cliente para vistas públicas (`/c/:code`, `/p/:code`, `/v/:code`) y panel del funcionario.                      |
+| `@tanstack/react-query`                     | `5.105.3`          | MIT        | Caché y sincronización de estado del servidor en el panel (`AGENTS.md` A4).                                                  |
+| `react-hook-form` / `@hookform/resolvers`   | `7.91.0` / `7.0.2` | MIT        | Formularios controlados validados con esquemas Zod compartidos (`AGENTS.md` A4).                                             |
+| `qrcode` / `@types/qrcode` _(dev)_          | `1.5.4` / `1.5.6`  | MIT        | Generación en cliente del cartel QR imprimible de cada sede (`/p/:loanPointCode`) y de eventos (`AGENTS.md` A4).             |
+| `recharts`                                  | `3.10.1`           | MIT        | Biblioteca de gráficos declarativos sobre SVG exigida en `AGENTS.md` A4.                                                     |
+| `signature_pad`                             | `5.1.4`            | MIT        | Lienzo de firma manuscrita digital en HTML5 Canvas para solicitudes públicas de préstamo (`/p/:code`, `AGENTS.md` A4).       |
+| `jsqr`                                      | `1.4.0`            | Apache-2.0 | Decodificación de códigos QR desde cámara web (`<video>`) e imágenes en HTML5 Canvas en navegadores de escritorio y móviles. |
+| `lucide-react`                              | `1.67.0`           | ISC        | Iconografía lineal geométrica para acompañar estados con icono + texto (`AGENTS.md` A9).                                     |
+| `@fontsource-variable/inter`                | `5.3.0`            | OFL-1.1    | Tipografía principal Inter Variable autoalojada, sin CDN (`AGENTS.md` A9).                                                   |
+| `@fontsource-variable/jetbrains-mono`       | `5.3.0`            | OFL-1.1    | Tipografía monoespaciada autoalojada para códigos públicos, documentos y certificados (`AGENTS.md` A9).                      |
+| `vite` / `@vitejs/plugin-react` _(dev)_     | `8.3.5` / `6.2.1`  | MIT        | Servidor de desarrollo con proxy `/api` y empaquetador de producción.                                                        |
+| `tailwindcss` / `@tailwindcss/vite` _(dev)_ | `4.3.4`            | MIT        | Motor de estilos conectado al sistema de tokens semánticos (`@theme inline`) de `tokens.css` (`AGENTS.md` A4, A9).           |
+| `@types/react` / `@types/react-dom` _(dev)_ | `19.3.0`           | MIT        | Definiciones de tipos para React 19.                                                                                         |

@@ -43,7 +43,7 @@ export function InventoryPage() {
           apiRequest<InventoryCategoryDto[]>('/inventory/categories'),
           apiRequest<ItemModelDto[]>('/inventory/models'),
           apiRequest<InventoryUnitDto[]>('/inventory/units'),
-          apiRequest<SiteDto[]>('/organizations/current/sites'),
+          apiRequest<SiteDto[]>('/sites'),
         ]);
         if (!active) return;
         setCategories(catList);

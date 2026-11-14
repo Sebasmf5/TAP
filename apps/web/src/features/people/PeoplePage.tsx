@@ -320,7 +320,14 @@ export function PeoplePage() {
                     <p className="font-mono text-xs text-[var(--text-body)]">
                       Token QR: {selectedPerson.qrToken}
                     </p>
-                    <div className="pt-2 flex items-center gap-2">
+                    <div className="pt-2 flex flex-wrap items-center gap-2">
+                      <a
+                        href={personQrUrl}
+                        download={`carne-qr-${selectedPerson.documentNumber}.png`}
+                        className="inline-flex items-center justify-center h-8 px-3 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] text-xs font-medium text-[var(--text-heading)] hover:bg-[var(--surface-hover)]"
+                      >
+                        Descargar QR (PNG)
+                      </a>
                       {canEdit && (
                         <Button
                           type="button"

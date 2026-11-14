@@ -32,7 +32,7 @@ export function LoansPage() {
         const [loanList, pointList, siteList] = await Promise.all([
           apiRequest<LoanDto[]>('/loans'),
           apiRequest<LendingPointDto[]>('/loans/lending-points'),
-          apiRequest<SiteDto[]>('/organizations/current/sites'),
+          apiRequest<SiteDto[]>('/sites'),
         ]);
         if (!active) return;
         setLoans(loanList);

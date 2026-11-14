@@ -70,6 +70,15 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   });
 
   const allowedOrigins = new Set(container.config.CORS_ALLOWED_ORIGINS);
+  if (container.config.NODE_ENV !== 'production') {
+    for (const origin of container.config.CORS_ALLOWED_ORIGINS) {
+      if (origin.includes('localhost')) {
+        allowedOrigins.add(origin.replace('localhost', '127.0.0.1'));
+      } else if (origin.includes('127.0.0.1')) {
+        allowedOrigins.add(origin.replace('127.0.0.1', 'localhost'));
+      }
+    }
+  }
   await app.register(cors, {
     credentials: true,
     origin: (origin, cb) => {

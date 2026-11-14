@@ -5,8 +5,9 @@ import type {
   EventDto,
   PublicCheckinSubmitResponse,
 } from '@tap/contracts';
-import { QrCode, Radio, ShieldAlert, UserPlus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import jsQR from 'jsqr';
+import { Camera, CameraOff, ImageUp, QrCode, Radio, ShieldAlert, UserPlus } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
   ApiClientError,
@@ -15,6 +16,25 @@ import {
 } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
 import { Badge, Button, Card, StatCard } from '../../shared/ui/index.ts';
+
+function decodeQrFromCanvasSource(
+  source: CanvasImageSource,
+  width: number,
+  height: number,
+): string | null {
+  if (width <= 0 || height <= 0) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const result = jsQR(imageData.data, width, height, {
+    inversionAttempts: 'attemptBoth',
+  });
+  return result?.data?.trim() || null;
+}
 
 const METHOD_LABELS: Record<string, string> = {
   event_qr: 'QR Evento',
@@ -138,41 +158,138 @@ export function EventAttendancePage() {
     };
   }, [eventId, reload]);
 
-  const handleKioskSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!eventId || !kioskQrToken.trim()) return;
-    setSubmittingEntry(true);
-    setEntryFeedback(null);
+  const submitKioskToken = useCallback(
+    async (rawToken: string) => {
+      const cleanToken = rawToken.trim();
+      if (!eventId || cleanToken.length < 6) return;
+      setSubmittingEntry(true);
+      setEntryFeedback(null);
 
-    try {
-      const res = await apiRequest<PublicCheckinSubmitResponse>(
-        `/events/${eventId}/attendance/scan`,
-        {
-          method: 'POST',
-          body: {
-            qrToken: kioskQrToken.trim(),
-            sessionId: selectedSessionId || undefined,
+      try {
+        const res = await apiRequest<PublicCheckinSubmitResponse>(
+          `/events/${eventId}/attendance/scan`,
+          {
+            method: 'POST',
+            body: {
+              qrToken: cleanToken,
+              sessionId: selectedSessionId || undefined,
+            },
           },
-        },
-      );
-      setKioskQrToken('');
-      setEntryFeedback({
-        outcome: res.outcome === 'already_registered' ? 'already_registered' : 'registered',
-        message: res.message,
-        maskedName: res.maskedName,
-      });
-      reload();
-    } catch (err) {
+        );
+        setKioskQrToken('');
+        setEntryFeedback({
+          outcome: res.outcome === 'already_registered' ? 'already_registered' : 'registered',
+          message: res.message,
+          maskedName: res.maskedName,
+        });
+        reload();
+      } catch (err) {
+        setEntryFeedback({
+          outcome: 'error',
+          message:
+            err instanceof ApiClientError
+              ? err.detail
+              : 'No se pudo procesar el código QR del carné.',
+        });
+      } finally {
+        setSubmittingEntry(false);
+      }
+    },
+    [eventId, reload, selectedSessionId],
+  );
+
+  // Escáner QR con cámara web en vivo y desde imagen
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastScannedRef = useRef<{ token: string; at: number }>({ token: '', at: 0 });
+
+  useEffect(() => {
+    if (!cameraActive || entryTab !== 'kiosk') return;
+    let cancelled = false;
+    let mediaStream: MediaStream | null = null;
+    let scanTimer: ReturnType<typeof setInterval> | null = null;
+
+    void (async () => {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        });
+        if (cancelled) {
+          mediaStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          await videoRef.current.play();
+        }
+
+        scanTimer = setInterval(() => {
+          const videoEl = videoRef.current;
+          if (!videoEl || videoEl.readyState < 2) return;
+          const detected = decodeQrFromCanvasSource(
+            videoEl,
+            videoEl.videoWidth || 640,
+            videoEl.videoHeight || 480,
+          );
+          if (!detected || detected.length < 6) return;
+          const now = Date.now();
+          if (lastScannedRef.current.token === detected && now - lastScannedRef.current.at < 3000) {
+            return;
+          }
+          lastScannedRef.current = { token: detected, at: now };
+          setKioskQrToken(detected);
+          void submitKioskToken(detected);
+        }, 250);
+      } catch {
+        if (!cancelled) {
+          setCameraActive(false);
+          setEntryFeedback({
+            outcome: 'error',
+            message:
+              'No fue posible acceder a la cámara del navegador. Verifica los permisos o usa «Escanear imagen QR».',
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (scanTimer) clearInterval(scanTimer);
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [cameraActive, entryTab, submitKioskToken]);
+
+  const handleScanImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const detected = decodeQrFromCanvasSource(bitmap, bitmap.width, bitmap.height);
+      if (!detected) {
+        setEntryFeedback({
+          outcome: 'error',
+          message: 'No se detectó ningún código QR válido en la imagen seleccionada.',
+        });
+        return;
+      }
+      setKioskQrToken(detected);
+      await submitKioskToken(detected);
+    } catch {
       setEntryFeedback({
         outcome: 'error',
-        message:
-          err instanceof ApiClientError
-            ? err.detail
-            : 'No se pudo procesar el código QR del carné.',
+        message: 'No se pudo leer la imagen del código QR.',
       });
-    } finally {
-      setSubmittingEntry(false);
     }
+  };
+
+  const handleKioskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitKioskToken(kioskQrToken);
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -384,28 +501,85 @@ export function EventAttendancePage() {
             )}
 
             {entryTab === 'kiosk' ? (
-              <form
-                onSubmit={(e) => void handleKioskSubmit(e)}
-                className="flex flex-col sm:flex-row gap-3"
-              >
-                <input
-                  type="text"
-                  data-testid="kiosk-qr-input"
-                  value={kioskQrToken}
-                  onChange={(e) => setKioskQrToken(e.target.value)}
-                  placeholder="Escanea con lector USB o escribe el token QR del carné (ej. 9K4M7P2X8R3T)"
-                  className="flex-1 h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3.5 font-mono text-sm text-[var(--text-heading)]"
-                />
-                {/* Única acción cromática principal de la vista */}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={submittingEntry || kioskQrToken.trim().length < 6}
-                  data-testid="kiosk-submit-btn"
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCameraActive((prev) => !prev)}
+                    data-testid="kiosk-camera-toggle-btn"
+                  >
+                    {cameraActive ? (
+                      <>
+                        <CameraOff className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                        Detener cámara QR
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                        Activar cámara QR
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="kiosk-image-scan-btn"
+                  >
+                    <ImageUp className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                    Escanear imagen QR
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => void handleScanImageFile(e)}
+                  />
+                </div>
+
+                {cameraActive && (
+                  <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-raised)] p-3 max-w-sm">
+                    <video
+                      ref={videoRef}
+                      muted
+                      playsInline
+                      className="w-full h-52 object-cover rounded-[var(--radius-control)] bg-black"
+                    />
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      Acerca el código QR del carné a la cámara para registrar la asistencia
+                      automáticamente.
+                    </p>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={(e) => void handleKioskSubmit(e)}
+                  className="flex flex-col sm:flex-row gap-3"
                 >
-                  {submittingEntry ? 'Registrando…' : 'Registrar carné QR'}
-                </Button>
-              </form>
+                  <input
+                    type="text"
+                    data-testid="kiosk-qr-input"
+                    value={kioskQrToken}
+                    onChange={(e) => setKioskQrToken(e.target.value)}
+                    placeholder="Escanea con cámara, lector USB o escribe el token QR (ej. QR-JUAN-DEMO-01)"
+                    className="flex-1 h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3.5 font-mono text-sm text-[var(--text-heading)]"
+                  />
+                  {/* Única acción cromática principal de la vista */}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={submittingEntry || kioskQrToken.trim().length < 6}
+                    data-testid="kiosk-submit-btn"
+                  >
+                    {submittingEntry ? 'Registrando…' : 'Registrar carné QR'}
+                  </Button>
+                </form>
+              </div>
             ) : (
               <form
                 onSubmit={(e) => void handleManualSubmit(e)}

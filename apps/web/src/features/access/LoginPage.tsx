@@ -1,7 +1,7 @@
 import type { GoogleAuthUrlResponse } from '@tap/contracts';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
-import { ApiClientError, apiRequest } from '../../shared/api/http-client.ts';
+import { ApiClientError, apiRequest, enableDemoMode } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
 import { Button, Card, Input, ThemeToggle } from '../../shared/ui/index.ts';
 
@@ -160,6 +160,60 @@ export function LoginPage() {
           >
             Continuar con Google
           </Button>
+
+          {/* Acceso directo interactivo para reclutadores / demostración en GitHub Pages */}
+          <div className="mt-6 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-raised)] p-4 space-y-3">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                Vista de portafolio / Reclutadores
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-body)]">
+                Explora todas las vistas del prototipo con datos interactivos precargados sin
+                necesidad de servidor local.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              data-testid="recruiter-demo-btn"
+              onClick={() => {
+                enableDemoMode(true);
+                void login({ email: 'admin@demo.tap', password: 'demo-portfolio-access' }).then(
+                  () => {
+                    void navigate('/app', { replace: true });
+                  },
+                );
+              }}
+            >
+              Entrar al Panel Administrativo (1 clic)
+            </Button>
+
+            <div className="pt-1 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <Link
+                to="/c/FERIA1"
+                onClick={() => enableDemoMode(false)}
+                className="font-mono text-[var(--link)] hover:underline"
+              >
+                → Check-in QR (/c/FERIA1)
+              </Link>
+              <Link
+                to="/p/PREST1"
+                onClick={() => enableDemoMode(false)}
+                className="font-mono text-[var(--link)] hover:underline"
+              >
+                → Préstamo (/p/PREST1)
+              </Link>
+              <Link
+                to="/v/TAP-2026-DEMO01"
+                onClick={() => enableDemoMode(false)}
+                className="font-mono text-[var(--link)] hover:underline"
+              >
+                → Verificar Diploma
+              </Link>
+            </div>
+          </div>
         </Card>
       </main>
 

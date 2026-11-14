@@ -1,4 +1,12 @@
 import type { AuthTokenResponse, ProblemDetails } from '@tap/contracts';
+import {
+  createDemoDownloadBlob,
+  enableDemoMode,
+  handleDemoRequest,
+  isDemoModeActive,
+} from './demo-backend.ts';
+
+export { enableDemoMode, isDemoModeActive };
 
 const API_BASE_URL = (import.meta.env['VITE_API_BASE_URL'] as string | undefined) ?? '/api/v1';
 
@@ -34,6 +42,17 @@ export class ApiClientError extends Error {
 }
 
 export async function refreshAccessTokenSilently(): Promise<AuthTokenResponse | null> {
+  if (isDemoModeActive()) {
+    try {
+      const data = await handleDemoRequest<AuthTokenResponse>('/auth/refresh', 'POST');
+      setAccessTokenInMemory(data.accessToken);
+      return data;
+    } catch {
+      setAccessTokenInMemory(null);
+      return null;
+    }
+  }
+
   if (inflightRefreshPromise) {
     return inflightRefreshPromise;
   }
@@ -69,6 +88,9 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (isDemoModeActive()) {
+    return handleDemoRequest<T>(normalizedPath, options.method ?? 'GET', options.body);
+  }
   const url = `${API_BASE_URL}${normalizedPath}`;
 
   const execute = async (token: string | null): Promise<Response> => {
@@ -132,6 +154,18 @@ export async function apiDownloadFile(
   options?: { method?: 'GET' | 'POST'; body?: unknown },
 ): Promise<void> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (isDemoModeActive()) {
+    const demoBlob = createDemoDownloadBlob(normalizedPath, fallbackFilename);
+    const objectUrl = URL.createObjectURL(demoBlob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fallbackFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+    return;
+  }
   const url = `${API_BASE_URL}${normalizedPath}`;
 
   const execute = async (token: string | null): Promise<Response> => {
@@ -186,6 +220,11 @@ export function subscribeServerSentEvents<T>(params: {
   onMessage: (data: T) => void;
   onError?: (err: unknown) => void;
 }): () => void {
+  if (isDemoModeActive()) {
+    return () => {
+      // En modo demostración estático no se abre stream HTTP externo
+    };
+  }
   const abortController = new AbortController();
   const normalizedPath = params.path.startsWith('/') ? params.path : `/${params.path}`;
   const url = `${API_BASE_URL}${normalizedPath}`;
