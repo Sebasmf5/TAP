@@ -35,17 +35,19 @@ jobs:
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Compilar SPA con base path del repositorio y crear fallback 404.html
+      - name: Compilar SPA y crear fallback 404.html
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://tap-production-57220670.up.railway.app/api/v1' }}
           VITE_APP_NAME: ${{ vars.VITE_APP_NAME || 'Tap' }}
         run: |
-          pnpm --filter @tap/web exec vite build --base="/${{ github.event.repository.name }}/"
+          pnpm --filter @tap/web exec vite build --base="/"
           cp apps/web/dist/index.html apps/web/dist/404.html
           node scripts/check-bundle.ts
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Subir artefacto estático
         uses: actions/upload-pages-artifact@v3

@@ -56,10 +56,16 @@ const configuredApiBaseUrl =
   (import.meta.env['VITE_API_BASE_URL'] as string | undefined) ?? '/api/v1';
 const hasRemoteBackendConfigured = /^https?:\/\//i.test(configuredApiBaseUrl.trim());
 
+export function isStaticPortfolioHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname.toLowerCase();
+  return host.endsWith('.github.io') || host.endsWith('sebasmf.dev');
+}
+
 let demoModeActive =
   typeof window !== 'undefined' &&
   (new URLSearchParams(window.location.search).get('demo') === '1' ||
-    (window.location.hostname.endsWith('.github.io') && !hasRemoteBackendConfigured));
+    (isStaticPortfolioHost() && !hasRemoteBackendConfigured));
 
 let demoSessionActive = demoModeActive;
 

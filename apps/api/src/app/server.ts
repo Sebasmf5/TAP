@@ -70,6 +70,13 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   });
 
   const allowedOrigins = new Set(container.config.CORS_ALLOWED_ORIGINS);
+  for (const origin of container.config.CORS_ALLOWED_ORIGINS) {
+    if (origin.includes('sebasmf5.github.io') || origin.includes('sebasmf.dev')) {
+      allowedOrigins.add('https://sebasmf5.github.io');
+      allowedOrigins.add('https://tap.sebasmf.dev');
+      allowedOrigins.add('https://sebasmf.dev');
+    }
+  }
   if (container.config.NODE_ENV !== 'production') {
     for (const origin of container.config.CORS_ALLOWED_ORIGINS) {
       if (origin.includes('localhost')) {

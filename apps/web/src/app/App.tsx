@@ -89,7 +89,19 @@ function RequireAuth({ children }: { readonly children: ReactNode }) {
   return <>{children}</>;
 }
 
-const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
+function resolveRouterBasename(): string {
+  if (typeof window !== 'undefined') {
+    const currentPath = window.location.pathname;
+    if (/^\/tap(\/|$)/i.test(currentPath)) {
+      return currentPath.slice(0, 4);
+    }
+    return '/';
+  }
+  const configured = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return configured || '/';
+}
+
+const routerBasename = resolveRouterBasename();
 
 export function App() {
   return (

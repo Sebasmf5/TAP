@@ -4,6 +4,7 @@ import {
   enableDemoMode,
   handleDemoRequest,
   isDemoModeActive,
+  isStaticPortfolioHost,
 } from './demo-backend.ts';
 
 export { enableDemoMode, isDemoModeActive };
@@ -114,7 +115,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   try {
     response = await execute(memoryAccessToken);
   } catch (networkError) {
-    if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
+    if (isStaticPortfolioHost()) {
       enableDemoMode(false);
       return handleDemoRequest<T>(normalizedPath, options.method ?? 'GET', options.body);
     }
