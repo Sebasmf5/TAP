@@ -29,10 +29,7 @@ if (!useInMemory) {
   await runMigrations(container.database.db);
 }
 await container.start();
-
-if (config.NODE_ENV !== 'production') {
-  await container.seedInitialData();
-}
+await container.seedInitialData();
 
 const server = await buildServer(container);
 

@@ -52,10 +52,14 @@ const UNIT_3_ID = '018f0000-0000-7000-8000-000000000803';
 const POINT_1_ID = '018f0000-0000-7000-8000-000000000901';
 const LOAN_1_ID = '018f0000-0000-7000-8000-000000000951';
 
+const configuredApiBaseUrl =
+  (import.meta.env['VITE_API_BASE_URL'] as string | undefined) ?? '/api/v1';
+const hasRemoteBackendConfigured = /^https?:\/\//i.test(configuredApiBaseUrl.trim());
+
 let demoModeActive =
   typeof window !== 'undefined' &&
-  (window.location.hostname.endsWith('.github.io') ||
-    new URLSearchParams(window.location.search).get('demo') === '1');
+  (new URLSearchParams(window.location.search).get('demo') === '1' ||
+    (window.location.hostname.endsWith('.github.io') && !hasRemoteBackendConfigured));
 
 let demoSessionActive = demoModeActive;
 

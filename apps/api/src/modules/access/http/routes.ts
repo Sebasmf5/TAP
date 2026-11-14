@@ -38,26 +38,38 @@ export function createAuthenticateRequest(
   };
 }
 
+function resolveCookieSameSite(cookieSecure: boolean, appUrl: string): 'strict' | 'none' {
+  if (cookieSecure && appUrl.startsWith('https://')) {
+    return 'none';
+  }
+  return 'strict';
+}
+
 function setRefreshCookie(
   reply: FastifyReply,
   token: string,
   maxAgeSeconds: number,
   cookieSecure: boolean,
+  sameSite: 'strict' | 'none',
 ): void {
   reply.setCookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: cookieSecure,
-    sameSite: 'strict',
+    sameSite,
     path: REFRESH_COOKIE_PATH,
     maxAge: maxAgeSeconds,
   });
 }
 
-function clearRefreshCookie(reply: FastifyReply, cookieSecure: boolean): void {
+function clearRefreshCookie(
+  reply: FastifyReply,
+  cookieSecure: boolean,
+  sameSite: 'strict' | 'none',
+): void {
   reply.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
     secure: cookieSecure,
-    sameSite: 'strict',
+    sameSite,
     path: REFRESH_COOKIE_PATH,
   });
 }
@@ -68,6 +80,7 @@ export function createAccessRoutes(deps: {
   appUrl: string;
 }): FastifyPluginAsync {
   const authenticate = createAuthenticateRequest(deps.service);
+  const cookieSameSite = resolveCookieSameSite(deps.cookieSecure, deps.appUrl);
 
   return async function accessRoutes(app: FastifyInstance) {
     const typed = app.withTypeProvider<ZodTypeProvider>();
@@ -98,6 +111,7 @@ export function createAccessRoutes(deps: {
           session.refreshTokenOpaque,
           session.refreshCookieMaxAgeSeconds,
           deps.cookieSecure,
+          cookieSameSite,
         );
         return session.response;
       },
@@ -129,10 +143,11 @@ export function createAccessRoutes(deps: {
             session.refreshTokenOpaque,
             session.refreshCookieMaxAgeSeconds,
             deps.cookieSecure,
+            cookieSameSite,
           );
           return session.response;
         } catch (error) {
-          clearRefreshCookie(reply, deps.cookieSecure);
+          clearRefreshCookie(reply, deps.cookieSecure, cookieSameSite);
           throw error;
         }
       },
@@ -152,7 +167,7 @@ export function createAccessRoutes(deps: {
       async (req, reply) => {
         const rawCookie = req.cookies?.[REFRESH_COOKIE_NAME];
         await deps.service.logout(rawCookie);
-        clearRefreshCookie(reply, deps.cookieSecure);
+        clearRefreshCookie(reply, deps.cookieSecure, cookieSameSite);
         return reply.status(204).send(null);
       },
     );
@@ -212,6 +227,7 @@ export function createAccessRoutes(deps: {
           session.refreshTokenOpaque,
           session.refreshCookieMaxAgeSeconds,
           deps.cookieSecure,
+          cookieSameSite,
         );
 
         return reply.redirect(`${deps.appUrl}/app`);
@@ -250,7 +266,7 @@ export function createAccessRoutes(deps: {
       async (req, reply) => {
         const ctx = await authenticate(req);
         await deps.service.changePassword(ctx, req.body);
-        clearRefreshCookie(reply, deps.cookieSecure);
+        clearRefreshCookie(reply, deps.cookieSecure, cookieSameSite);
         return reply.status(204).send(null);
       },
     );

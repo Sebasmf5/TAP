@@ -66,7 +66,19 @@ const EnvSchema = z.object({
 export type AppConfig = z.infer<typeof EnvSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = EnvSchema.safeParse(env);
+  const normalizedEnv: NodeJS.ProcessEnv = {
+    ...env,
+    API_PORT: env['API_PORT'] ?? env['PORT'],
+    POSTGRES_USER:
+      env['POSTGRES_USER'] ?? env['PGUSER'] ?? (env['DATABASE_URL'] ? 'postgres' : undefined),
+    POSTGRES_PASSWORD:
+      env['POSTGRES_PASSWORD'] ??
+      env['PGPASSWORD'] ??
+      (env['DATABASE_URL'] ? 'railway-managed' : undefined),
+    POSTGRES_DB:
+      env['POSTGRES_DB'] ?? env['PGDATABASE'] ?? (env['DATABASE_URL'] ? 'railway' : undefined),
+  };
+  const parsed = EnvSchema.safeParse(normalizedEnv);
   if (!parsed.success) {
     // Solo reportamos los nombres de las variables inválidas, nunca sus valores.
     const issues = parsed.error.issues
