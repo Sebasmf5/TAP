@@ -1,4 +1,10 @@
-import type { AuthTokenResponse, LoginRequest, StaffRole, UserProfile } from '@tap/contracts';
+import type {
+  AuthTokenResponse,
+  LoginRequest,
+  RegisterOrganizationRequest,
+  StaffRole,
+  UserProfile,
+} from '@tap/contracts';
 import {
   createContext,
   useCallback,
@@ -19,6 +25,7 @@ export interface AuthContextValue {
   readonly isLoading: boolean;
   readonly isAuthenticated: boolean;
   login(credentials: LoginRequest): Promise<UserProfile>;
+  register(input: RegisterOrganizationRequest): Promise<UserProfile>;
   logout(): Promise<void>;
   reloadUser(): Promise<void>;
   hasRole(roles: ReadonlyArray<StaffRole>): boolean;
@@ -61,6 +68,17 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     return res.user;
   }, []);
 
+  const register = useCallback(async (input: RegisterOrganizationRequest): Promise<UserProfile> => {
+    const res = await apiRequest<AuthTokenResponse>('/auth/register', {
+      method: 'POST',
+      body: input,
+      skipAuthRefresh: true,
+    });
+    setAccessTokenInMemory(res.accessToken);
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await apiRequest<null>('/auth/logout', {
@@ -92,11 +110,12 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       isLoading,
       isAuthenticated: Boolean(user),
       login,
+      register,
       logout,
       reloadUser,
       hasRole,
     }),
-    [user, isLoading, login, logout, reloadUser, hasRole],
+    [user, isLoading, login, register, logout, reloadUser, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

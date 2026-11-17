@@ -3,6 +3,7 @@ import type { AuditLog, Clock, DrizzleExecutor, IdGenerator } from '../../shared
 import { FeatureGate, OrganizationsService } from './application/use-cases.ts';
 import {
   DEFAULT_FEATURE_FLAGS,
+  buildFeatureFlagsForServicePlan,
   isEmailDomainAllowed,
   isFeatureEnabled,
   mergeFeatureFlags,
@@ -80,6 +81,7 @@ export {
   FeatureGate,
   InMemoryOrganizationsRepository,
   OrganizationsService,
+  buildFeatureFlagsForServicePlan,
   createOrganizationsRoutes,
   isEmailDomainAllowed,
   isFeatureEnabled,

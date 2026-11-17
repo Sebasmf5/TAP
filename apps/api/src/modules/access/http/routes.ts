@@ -5,6 +5,7 @@ import {
   CreateUserRequestSchema,
   GoogleAuthUrlResponseSchema,
   LoginRequestSchema,
+  RegisterOrganizationRequestSchema,
   UpdateUserRequestSchema,
   UserProfileSchema,
 } from '@tap/contracts';
@@ -114,6 +115,37 @@ export function createAccessRoutes(deps: {
           cookieSameSite,
         );
         return session.response;
+      },
+    );
+
+    typed.post(
+      '/auth/register',
+      {
+        schema: {
+          tags: ['access'],
+          summary:
+            'Registra una nueva entidad adquiriendo asistencia rápida o inventarios (excluyentes) y crea su administrador',
+          body: RegisterOrganizationRequestSchema,
+          response: {
+            201: AuthTokenResponseSchema,
+          },
+        },
+      },
+      async (req, reply) => {
+        const userAgentHeader = req.headers['user-agent'];
+        const session = await deps.service.registerOrganizationAdmin({
+          input: req.body,
+          ip: req.ip,
+          userAgent: typeof userAgentHeader === 'string' ? userAgentHeader : undefined,
+        });
+        setRefreshCookie(
+          reply,
+          session.refreshTokenOpaque,
+          session.refreshCookieMaxAgeSeconds,
+          deps.cookieSecure,
+          cookieSameSite,
+        );
+        return reply.status(201).send(session.response);
       },
     );
 

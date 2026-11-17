@@ -86,12 +86,22 @@ export function DashboardHomePage() {
 
         {/* Única acción cromática principal de la vista */}
         {user.role === 'platform_admin' ? (
-          <Link to="/app/platform/organizations">
-            <Button variant="primary">Administrar entidades</Button>
+          <Link to="/app/platform/organizations" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto">
+              Administrar entidades
+            </Button>
+          </Link>
+        ) : organization?.features.attendance && !organization?.features.inventory ? (
+          <Link to="/app/events" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto">
+              Gestionar eventos y asistencia
+            </Button>
           </Link>
         ) : (
-          <Link to="/app/sites">
-            <Button variant="primary">Ver puntos QR de préstamo</Button>
+          <Link to="/app/loans" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto">
+              Gestionar préstamos e inventario
+            </Button>
           </Link>
         )}
       </div>
@@ -166,23 +176,23 @@ export function DashboardHomePage() {
             description="Gestiona las sedes físicas, códigos QR y cuentas del personal de apoyo."
           >
             <div className="mt-2 space-y-3">
-              <div className="flex items-center justify-between rounded-[var(--radius-control)] border border-[var(--border)] p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border)] p-3">
                 <div>
                   <p className="text-sm font-medium text-[var(--text-heading)]">
-                    Sedes y puntos de préstamo
+                    Sedes y puntos QR
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
                     Descarga e imprime el código QR único de cada punto.
                   </p>
                 </div>
-                <Link to="/app/sites">
-                  <Button variant="outline" size="sm">
+                <Link to="/app/sites" className="shrink-0">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     Abrir sedes
                   </Button>
                 </Link>
               </div>
 
-              <div className="flex items-center justify-between rounded-[var(--radius-control)] border border-[var(--border)] p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border)] p-3">
                 <div>
                   <p className="text-sm font-medium text-[var(--text-heading)]">
                     Parámetros de la entidad
@@ -191,15 +201,15 @@ export function DashboardHomePage() {
                     Dominios de correo autorizados y texto de tratamiento de datos.
                   </p>
                 </div>
-                <Link to="/app/organization">
-                  <Button variant="outline" size="sm">
+                <Link to="/app/organization" className="shrink-0">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     Configurar
                   </Button>
                 </Link>
               </div>
 
               {user.role === 'org_admin' && (
-                <div className="flex items-center justify-between rounded-[var(--radius-control)] border border-[var(--border)] p-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border)] p-3">
                   <div>
                     <p className="text-sm font-medium text-[var(--text-heading)]">
                       Equipo de funcionarios
@@ -208,8 +218,8 @@ export function DashboardHomePage() {
                       Crea cuentas de operador o consulta y revoca accesos al instante.
                     </p>
                   </div>
-                  <Link to="/app/users">
-                    <Button variant="outline" size="sm">
+                  <Link to="/app/users" className="shrink-0">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
                       Gestionar usuarios
                     </Button>
                   </Link>

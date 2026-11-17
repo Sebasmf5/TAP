@@ -171,6 +171,8 @@ export function createAppContainer(params: {
     auditLog,
     isEmailAllowedForOrg: (organizationId, email) =>
       organizationsModule.isEmailAllowed(organizationId, email),
+    registerOrganizationForSignup: (input) =>
+      organizationsModule.service.registerOrganizationForSignup(input),
   });
 
   const peopleModule = createPeopleModule({

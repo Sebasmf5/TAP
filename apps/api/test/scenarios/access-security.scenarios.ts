@@ -324,5 +324,74 @@ export function accessSecurityScenarios(mode: HarnessMode): void {
 
       await server.close();
     });
+
+    it('permite registrar entidad adquiriendo asistencia rápida o inventarios de forma excluyente', async () => {
+      const { container } = await createHarness(mode);
+      const server = await buildServer(container);
+
+      const passAttendance = `Segura#${randomBytes(6).toString('hex')}`;
+      const regAttendanceRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: {
+          organizationName: 'Liga Atlética Piloto',
+          organizationType: 'ente_deportivo',
+          servicePlan: 'attendance_only',
+          adminFullName: 'Laura Gómez',
+          adminEmail: `laura.${randomBytes(3).toString('hex')}@liga.tap`,
+          adminPassword: passAttendance,
+        },
+      });
+      expect(regAttendanceRes.statusCode).toBe(201);
+      const attToken: string = regAttendanceRes.json().accessToken;
+
+      const attOrgRes = await server.inject({
+        method: 'GET',
+        url: '/api/v1/organization',
+        headers: { authorization: `Bearer ${attToken}` },
+      });
+      expect(attOrgRes.statusCode).toBe(200);
+      expect(attOrgRes.json().features.attendance).toBe(true);
+      expect(attOrgRes.json().features.certificates).toBe(true);
+      expect(attOrgRes.json().features.inventory).toBe(false);
+      expect(attOrgRes.json().features.loans).toBe(false);
+
+      // El módulo de inventarios queda bloqueado por FeatureGate
+      const blockedInvRes = await server.inject({
+        method: 'GET',
+        url: '/api/v1/inventory/categories',
+        headers: { authorization: `Bearer ${attToken}` },
+      });
+      expect(blockedInvRes.statusCode).toBe(403);
+
+      const passInventory = `Bodega#${randomBytes(6).toString('hex')}`;
+      const regInventoryRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: {
+          organizationName: 'Gimnasio Central',
+          organizationType: 'gimnasio',
+          servicePlan: 'inventory_only',
+          adminFullName: 'Carlos Ruiz',
+          adminEmail: `carlos.${randomBytes(3).toString('hex')}@gimnasio.tap`,
+          adminPassword: passInventory,
+        },
+      });
+      expect(regInventoryRes.statusCode).toBe(201);
+      const invToken: string = regInventoryRes.json().accessToken;
+
+      const invOrgRes = await server.inject({
+        method: 'GET',
+        url: '/api/v1/organization',
+        headers: { authorization: `Bearer ${invToken}` },
+      });
+      expect(invOrgRes.statusCode).toBe(200);
+      expect(invOrgRes.json().features.inventory).toBe(true);
+      expect(invOrgRes.json().features.loans).toBe(true);
+      expect(invOrgRes.json().features.attendance).toBe(false);
+      expect(invOrgRes.json().features.certificates).toBe(false);
+
+      await server.close();
+    });
   });
 }

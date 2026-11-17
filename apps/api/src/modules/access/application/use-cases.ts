@@ -2,6 +2,9 @@ import type {
   AuthTokenResponse,
   ChangePasswordRequest,
   CreateUserRequest,
+  OrganizationType,
+  RegisterOrganizationRequest,
+  ServiceModulePlan,
   StaffRole,
   UpdateUserRequest,
   UserProfile,
@@ -153,6 +156,11 @@ export class AccessService {
     organizationId: string,
     email: string,
   ) => Promise<boolean>;
+  private readonly registerOrganizationForSignup?: (input: {
+    organizationName: string;
+    organizationType: OrganizationType;
+    servicePlan: ServiceModulePlan;
+  }) => Promise<{ organizationId: string; siteId: string }>;
 
   constructor(params: {
     repository: AccessRepository;
@@ -164,6 +172,11 @@ export class AccessService {
     auditLog: AuditLog;
     refreshTtlDays: number;
     isEmailAllowedForOrg?: (organizationId: string, email: string) => Promise<boolean>;
+    registerOrganizationForSignup?: (input: {
+      organizationName: string;
+      organizationType: OrganizationType;
+      servicePlan: ServiceModulePlan;
+    }) => Promise<{ organizationId: string; siteId: string }>;
   }) {
     this.repository = params.repository;
     this.passwordHasher = params.passwordHasher;
@@ -176,6 +189,65 @@ export class AccessService {
     this.statusCache = new UserStatusCache(params.clock);
     this.loginLimiter = new LoginRateLimiter(params.clock);
     this.isEmailAllowedForOrg = params.isEmailAllowedForOrg;
+    this.registerOrganizationForSignup = params.registerOrganizationForSignup;
+  }
+
+  async registerOrganizationAdmin(params: {
+    input: RegisterOrganizationRequest;
+    ip: string;
+    userAgent?: string;
+  }): Promise<SessionIssueResult> {
+    if (!this.registerOrganizationForSignup) {
+      throw new ForbiddenError('El registro público de entidades no está habilitado.');
+    }
+
+    const email = params.input.adminEmail.trim().toLowerCase();
+    validatePasswordStrength(params.input.adminPassword, email);
+
+    const existingUser = await this.repository.findUserByEmail(email);
+    if (existingUser) {
+      throw new ConflictError('Ya existe una cuenta registrada con ese correo electrónico.');
+    }
+
+    const { organizationId } = await this.registerOrganizationForSignup({
+      organizationName: params.input.organizationName,
+      organizationType: params.input.organizationType,
+      servicePlan: params.input.servicePlan,
+    });
+
+    const now = this.clock.now();
+    const user: StaffUser = {
+      id: this.idGenerator.nextId(),
+      organizationId,
+      email,
+      fullName: params.input.adminFullName.trim(),
+      passwordHash: await this.passwordHasher.hash(params.input.adminPassword),
+      role: 'org_admin',
+      status: 'active',
+      tokenVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await this.repository.createUser(user);
+
+    const session = await this.issueSession({
+      user,
+      ip: params.ip,
+      userAgent: params.userAgent,
+    });
+
+    await this.auditLog.record({
+      organizationId,
+      actorUserId: user.id,
+      action: 'auth.register_organization',
+      targetType: 'user',
+      targetId: user.id,
+      ipHash: hashIpAddress(params.ip),
+      metadata: { servicePlan: params.input.servicePlan },
+    });
+
+    return session;
   }
 
   async loginWithPassword(params: {

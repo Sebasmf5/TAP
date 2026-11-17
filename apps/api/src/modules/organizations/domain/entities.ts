@@ -4,6 +4,7 @@ import type {
   OrganizationDto,
   OrganizationPlan,
   OrganizationType,
+  ServiceModulePlan,
   SiteDto,
 } from '@tap/contracts';
 
@@ -16,6 +17,33 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   kioskMode: true,
   googleSso: false,
 };
+
+/**
+ * Construye las banderas de servicio garantizando exclusividad mutua:
+ * una entidad adquiere asistencia rápida o inventarios, nunca ambos.
+ */
+export function buildFeatureFlagsForServicePlan(servicePlan: ServiceModulePlan): FeatureFlags {
+  if (servicePlan === 'attendance_only') {
+    return {
+      attendance: true,
+      certificates: true,
+      inventory: false,
+      loans: false,
+      reports: true,
+      kioskMode: true,
+      googleSso: false,
+    };
+  }
+  return {
+    attendance: false,
+    certificates: false,
+    inventory: true,
+    loans: true,
+    reports: true,
+    kioskMode: false,
+    googleSso: false,
+  };
+}
 
 export interface Organization {
   readonly id: string;

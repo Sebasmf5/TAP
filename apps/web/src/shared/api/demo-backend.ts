@@ -98,7 +98,7 @@ function maskDocument(doc: string): string {
   return `•••${clean.slice(-4)}`;
 }
 
-const demoUser: UserProfile = {
+let demoUser: UserProfile = {
   id: '018f0000-0000-7000-8000-000000000001',
   organizationId: ORG_ID,
   email: 'admin@demo.tap',
@@ -584,6 +584,68 @@ export async function handleDemoRequest<T>(
   const payload = (body ?? {}) as Record<string, unknown>;
 
   // 1. Autenticación
+  if (pathname === '/auth/register' && upperMethod === 'POST') {
+    const servicePlan =
+      payload['servicePlan'] === 'inventory_only' ? 'inventory_only' : 'attendance_only';
+    const orgName =
+      String(payload['organizationName'] ?? 'Nueva Entidad').trim() || 'Nueva Entidad';
+    const orgType =
+      (payload['organizationType'] as OrganizationDto['type']) ?? 'institucion_educativa';
+    const adminName = String(payload['adminFullName'] ?? 'Administrador').trim() || 'Administrador';
+    const adminEmail = String(payload['adminEmail'] ?? 'admin@entidad.tap')
+      .trim()
+      .toLowerCase();
+
+    demoOrganization = {
+      ...demoOrganization,
+      name: orgName,
+      slug:
+        orgName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'nueva-entidad',
+      type: orgType,
+      plan: 'pilot',
+      features:
+        servicePlan === 'attendance_only'
+          ? {
+              attendance: true,
+              certificates: true,
+              inventory: false,
+              loans: false,
+              reports: true,
+              kioskMode: true,
+              googleSso: false,
+            }
+          : {
+              attendance: false,
+              certificates: false,
+              inventory: true,
+              loans: true,
+              reports: true,
+              kioskMode: false,
+              googleSso: false,
+            },
+    };
+    demoUser = {
+      id: nextDemoId(),
+      organizationId: ORG_ID,
+      email: adminEmail,
+      fullName: adminName,
+      role: 'org_admin',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+    demoUsers = [demoUser];
+    demoSessionActive = true;
+    const response: AuthTokenResponse = {
+      accessToken: 'demo-session-active',
+      expiresInSeconds: 900,
+      user: demoUser,
+    };
+    return response as unknown as T;
+  }
+
   if (pathname === '/auth/login' && upperMethod === 'POST') {
     demoSessionActive = true;
     const response: AuthTokenResponse = {

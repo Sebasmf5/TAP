@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router';
-import { DashboardHomePage, LoginPage, ProfilePage, UsersPage } from '../features/access/index.ts';
+import {
+  DashboardHomePage,
+  LoginPage,
+  ProfilePage,
+  RegisterPage,
+  UsersPage,
+} from '../features/access/index.ts';
 import { EventAttendancePage, PublicCheckinPage } from '../features/attendance/index.ts';
 import { CertificatesPage, PublicCertificateVerifyPage } from '../features/certificates/index.ts';
 import { EventsPage } from '../features/events/index.ts';
@@ -111,6 +117,7 @@ export function App() {
           <RecruiterDemoBanner />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/c/:code" element={<PublicCheckinPage />} />
             <Route path="/p/:code" element={<PublicLoanRequestPage />} />
             <Route path="/v/:code" element={<PublicCertificateVerifyPage />} />

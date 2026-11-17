@@ -213,7 +213,11 @@ export function EventAttendancePage() {
     void (async () => {
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
           audio: false,
         });
         if (cancelled) {
@@ -537,6 +541,7 @@ export function EventAttendancePage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(e) => void handleScanImageFile(e)}
                   />
@@ -548,6 +553,7 @@ export function EventAttendancePage() {
                       ref={videoRef}
                       muted
                       playsInline
+                      autoPlay
                       className="w-full h-52 object-cover rounded-[var(--radius-control)] bg-black"
                     />
                     <p className="mt-2 text-xs text-[var(--text-muted)]">

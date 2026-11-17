@@ -1,11 +1,20 @@
 import type { LendingPointDto, LoanDto, OverdueSweepResponse, SiteDto } from '@tap/contracts';
-import { AlertTriangle, Download, ExternalLink, Plus, QrCode, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  Camera,
+  Download,
+  ExternalLink,
+  Plus,
+  QrCode,
+  RotateCcw,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { ApiClientError, apiDownloadFile, apiRequest } from '../../shared/api/http-client.ts';
-import { Badge, Button, Card, Input, StatCard } from '../../shared/ui/index.ts';
+import { Badge, Button, Card, Input, QrScannerModal, StatCard } from '../../shared/ui/index.ts';
 
 export function LoansPage() {
+  const [searchParams] = useSearchParams();
   const [loans, setLoans] = useState<LoanDto[]>([]);
   const [points, setPoints] = useState<LendingPointDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,8 +22,9 @@ export function LoansPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Devolución rápida por QR o código de unidad
-  const [unitQrInput, setUnitQrInput] = useState('');
+  const [unitQrInput, setUnitQrInput] = useState(() => searchParams.get('returnQr') ?? '');
   const [returningQr, setReturningQr] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // Nuevo punto de préstamo
   const [newPointName, setNewPointName] = useState('');
@@ -221,9 +231,12 @@ export function LoansPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
           title="Devolución rápida por código o QR de unidad"
-          description="Escanea la etiqueta QR adherida al implemento o escribe su código (ej: BAL-001) para liberarlo al instante."
+          description="Escanea la etiqueta QR adherida al implemento con tu celular o escribe su código (ej: BAL-001) para liberarlo al instante."
         >
-          <form onSubmit={(e) => void handleReturnByQr(e)} className="flex gap-3 items-end">
+          <form
+            onSubmit={(e) => void handleReturnByQr(e)}
+            className="flex flex-col sm:flex-row gap-3 sm:items-end"
+          >
             <div className="flex-1">
               <Input
                 id="return-unit-qr-input"
@@ -235,18 +248,40 @@ export function LoansPage() {
                 required
               />
             </div>
-            {/* Única acción cromática principal por vista (AGENTS.md A9) */}
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={returningQr || !unitQrInput.trim()}
-              data-testid="return-by-qr-btn"
-            >
-              <QrCode className="h-4 w-4" aria-hidden="true" />
-              {returningQr ? 'Recibiendo…' : 'Registrar devolución'}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScannerOpen(true)}
+                data-testid="open-loan-qr-scanner-btn"
+              >
+                <Camera className="h-4 w-4" aria-hidden="true" />
+                Escanear QR
+              </Button>
+              {/* Única acción cromática principal por vista (AGENTS.md A9) */}
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={returningQr || !unitQrInput.trim()}
+                data-testid="return-by-qr-btn"
+              >
+                <QrCode className="h-4 w-4" aria-hidden="true" />
+                {returningQr ? 'Recibiendo…' : 'Registrar devolución'}
+              </Button>
+            </div>
           </form>
         </Card>
+
+        <QrScannerModal
+          open={scannerOpen}
+          title="Escanear etiqueta QR del implemento"
+          description="Apunta la cámara trasera del celular hacia la etiqueta QR de la unidad a devolver."
+          onClose={() => setScannerOpen(false)}
+          onDetected={(decoded) => {
+            setUnitQrInput(decoded);
+            setScannerOpen(false);
+          }}
+        />
 
         <Card
           title="Puntos de préstamo activos (/p/:code)"

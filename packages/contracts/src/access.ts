@@ -67,3 +67,33 @@ export const GoogleAuthUrlResponseSchema = z.object({
   state: z.string().optional(),
 });
 export type GoogleAuthUrlResponse = z.infer<typeof GoogleAuthUrlResponseSchema>;
+
+/** Servicio adquirido por la entidad: únicamente asistencia rápida o inventarios, nunca ambos. */
+export const ServiceModulePlanSchema = z.enum(['attendance_only', 'inventory_only']);
+export type ServiceModulePlan = z.infer<typeof ServiceModulePlanSchema>;
+
+export const RegisterOrganizationRequestSchema = z.object({
+  organizationName: z
+    .string()
+    .trim()
+    .min(2, 'Escribe el nombre de la entidad u organización.')
+    .max(140),
+  organizationType: z.enum([
+    'ente_deportivo',
+    'caja',
+    'gimnasio',
+    'empresa',
+    'institucion_educativa',
+    'otro',
+  ]),
+  servicePlan: ServiceModulePlanSchema,
+  adminFullName: z.string().trim().min(2, 'Escribe tu nombre completo.').max(120),
+  adminEmail: z
+    .email('Ingresa un correo institucional válido.')
+    .transform((v) => v.trim().toLowerCase()),
+  adminPassword: z
+    .string()
+    .min(12, 'La contraseña debe tener al menos 12 caracteres.')
+    .max(128, 'La contraseña no puede superar 128 caracteres.'),
+});
+export type RegisterOrganizationRequest = z.infer<typeof RegisterOrganizationRequestSchema>;

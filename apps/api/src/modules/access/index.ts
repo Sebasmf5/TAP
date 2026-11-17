@@ -1,4 +1,4 @@
-import type { StaffRole } from '@tap/contracts';
+import type { OrganizationType, ServiceModulePlan, StaffRole } from '@tap/contracts';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type {
   AppConfig,
@@ -75,6 +75,11 @@ export function createAccessModule(params: {
   clock: Clock;
   auditLog: AuditLog;
   isEmailAllowedForOrg?: (organizationId: string, email: string) => Promise<boolean>;
+  registerOrganizationForSignup?: (input: {
+    organizationName: string;
+    organizationType: OrganizationType;
+    servicePlan: ServiceModulePlan;
+  }) => Promise<{ organizationId: string; siteId: string }>;
 }): AccessModule {
   const repository =
     params.repository ??
@@ -110,6 +115,7 @@ export function createAccessModule(params: {
     auditLog: params.auditLog,
     refreshTtlDays: params.config.JWT_REFRESH_TTL_DAYS,
     isEmailAllowedForOrg: params.isEmailAllowedForOrg,
+    registerOrganizationForSignup: params.registerOrganizationForSignup,
   });
 
   const authenticateRequest = createAuthenticateRequest(service);

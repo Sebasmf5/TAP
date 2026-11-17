@@ -3,6 +3,8 @@ import type {
   CreateSiteRequest,
   FeatureKey,
   OrganizationDto,
+  OrganizationType,
+  ServiceModulePlan,
   SiteDto,
   UpdateOrganizationRequest,
   UpdateSiteRequest,
@@ -19,6 +21,7 @@ import {
 } from '../../../shared/index.ts';
 import {
   DEFAULT_FEATURE_FLAGS,
+  buildFeatureFlagsForServicePlan,
   isEmailDomainAllowed,
   isFeatureEnabled,
   mergeFeatureFlags,
@@ -131,6 +134,76 @@ export class OrganizationsService {
     });
 
     return toOrganizationDto(org);
+  }
+
+  /**
+   * Crea una nueva entidad desde el registro público con un único servicio activo
+   * (asistencia rápida o inventarios, nunca ambos) y su sede principal por defecto.
+   */
+  async registerOrganizationForSignup(input: {
+    organizationName: string;
+    organizationType: OrganizationType;
+    servicePlan: ServiceModulePlan;
+  }): Promise<{ organizationId: string; siteId: string }> {
+    const baseSlug =
+      input.organizationName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'entidad';
+
+    const existing = await this.repository.findBySlug(baseSlug);
+    const slug = existing
+      ? `${baseSlug.slice(0, 40)}-${this.idGenerator.publicCode(4).toLowerCase()}`
+      : baseSlug;
+
+    const now = this.clock.now();
+    const orgId = this.idGenerator.nextId();
+    const org: Organization = {
+      id: orgId,
+      name: input.organizationName.trim(),
+      slug,
+      type: input.organizationType,
+      plan: 'pilot',
+      features: buildFeatureFlagsForServicePlan(input.servicePlan),
+      logoUrl: null,
+      timezone: 'America/Bogota',
+      allowedEmailDomains: [],
+      dataConsentVersion: 'v1.0',
+      dataConsentText:
+        'Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales conforme a la Ley 1581 de 2012 para el registro de asistencia, emisión de certificados y gestión de préstamos de implementos.',
+      retentionDays: 1095,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await this.repository.create(org);
+
+    const siteId = this.idGenerator.nextId();
+    await this.repository.createSite({
+      id: siteId,
+      organizationId: orgId,
+      name: 'Sede Principal',
+      code: 'SEDE-01',
+      address: null,
+      loanPointCode: this.idGenerator.publicCode(8),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await this.auditLog.record({
+      organizationId: orgId,
+      actorUserId: null,
+      action: 'organization.registered',
+      targetType: 'organization',
+      targetId: orgId,
+      metadata: { slug: org.slug, servicePlan: input.servicePlan },
+    });
+
+    return { organizationId: orgId, siteId };
   }
 
   async updateOrganizationByPlatform(
