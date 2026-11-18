@@ -11,6 +11,7 @@ import {
   Input,
   QrScannerModal,
   TapHeroIllustration,
+  TapLogo,
   ThemeToggle,
   resolveTapInternalPath,
 } from '../../shared/ui/index.ts';
@@ -87,17 +88,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-body)] flex flex-col justify-between px-4 py-6 sm:px-6 sm:py-8">
       <header className="mx-auto w-full max-w-[1280px] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--action)] text-[var(--action-text)] font-mono text-sm font-semibold">
-            T
-          </span>
-          <div className="truncate">
-            <span className="text-base font-medium text-[var(--text-heading)]">Tap</span>
-            <span className="hidden sm:inline ml-2 text-xs text-[var(--text-muted)]">
-              Asistencia, certificados y préstamos
-            </span>
-          </div>
-        </div>
+        <TapLogo size="md" subtitle="Asistencia, certificados y préstamos" />
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Button
             type="button"
@@ -230,6 +221,7 @@ export function LoginPage() {
           <section className="lg:col-span-5 w-full max-w-md mx-auto lg:max-w-none">
             <Card padding="lg">
               <div className="mb-5">
+                <TapLogo size="lg" className="mb-4" />
                 <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1">
                   Acceso de funcionarios
                 </p>

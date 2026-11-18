@@ -12,4 +12,5 @@ export {
 export { StatCard, type StatCardProps } from './StatCard.tsx';
 export { Table, type TableColumn, type TableProps } from './Table.tsx';
 export { TapHeroIllustration, TapPanelAccentIllustration } from './TapIllustrations.tsx';
+export { TapLogo, TapMark, type TapLogoProps, type TapLogoSize } from './TapLogo.tsx';
 export { ThemeToggle } from './ThemeToggle.tsx';

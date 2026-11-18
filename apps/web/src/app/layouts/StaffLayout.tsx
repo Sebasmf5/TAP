@@ -8,6 +8,8 @@ import {
   Badge,
   Button,
   QrScannerModal,
+  TapLogo,
+  TapMark,
   ThemeToggle,
   resolveTapInternalPath,
 } from '../../shared/ui/index.ts';
@@ -173,20 +175,8 @@ export function StaffLayout() {
             className="relative z-50 w-72 max-w-[85vw] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col justify-between h-full overflow-y-auto"
           >
             <div>
-              <div className="h-14 px-4 border-b border-[var(--border)] flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--action)] text-[var(--action-text)] font-mono text-xs font-semibold">
-                    T
-                  </span>
-                  <div className="truncate">
-                    <p className="text-sm font-medium text-[var(--text-heading)] leading-tight">
-                      Tap
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)] truncate">
-                      {organization?.name ?? 'Administración central'}
-                    </p>
-                  </div>
-                </div>
+              <div className="h-16 px-4 border-b border-[var(--border)] flex items-center justify-between gap-2">
+                <TapLogo size="sm" subtitle={organization?.name ?? 'Administración central'} />
                 <Button
                   type="button"
                   variant="ghost"
@@ -231,23 +221,9 @@ export function StaffLayout() {
         <div>
           <div className="h-16 px-4 border-b border-[var(--border)] flex items-center justify-between gap-2">
             {!collapsed ? (
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--action)] text-[var(--action-text)] font-mono text-xs font-semibold">
-                  T
-                </span>
-                <div className="truncate">
-                  <p className="text-sm font-medium text-[var(--text-heading)] leading-tight">
-                    Tap
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">
-                    {organization?.name ?? 'Administración central'}
-                  </p>
-                </div>
-              </div>
+              <TapLogo size="sm" subtitle={organization?.name ?? 'Administración central'} />
             ) : (
-              <span className="mx-auto inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius-control)] bg-[var(--action)] text-[var(--action-text)] font-mono text-xs font-semibold">
-                T
-              </span>
+              <TapMark className="mx-auto h-9 w-9" />
             )}
           </div>
 

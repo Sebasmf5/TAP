@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { ApiClientError, apiRequest, isDemoModeActive } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
-import { Badge, Button, Card, Input, ThemeToggle } from '../../shared/ui/index.ts';
+import { Badge, Button, Card, Input, TapLogo, ThemeToggle } from '../../shared/ui/index.ts';
 
 const ORGANIZATION_TYPES: ReadonlyArray<{ value: OrganizationType; label: string }> = [
   { value: 'institucion_educativa', label: 'Institución educativa' },
@@ -177,17 +177,7 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-body)] flex flex-col justify-between px-4 py-6 sm:px-6 sm:py-8">
       <header className="mx-auto w-full max-w-[1280px] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--action)] text-[var(--action-text)] font-mono text-sm font-semibold">
-            T
-          </span>
-          <div className="truncate">
-            <span className="text-base font-medium text-[var(--text-heading)]">Tap</span>
-            <span className="hidden sm:inline ml-2 text-xs text-[var(--text-muted)]">
-              Registro de nueva entidad
-            </span>
-          </div>
-        </div>
+        <TapLogo size="md" subtitle="Registro de nueva entidad" />
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
             to="/login"

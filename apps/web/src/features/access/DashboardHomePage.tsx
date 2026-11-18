@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   StatCard,
+  TapMark,
   TapPanelAccentIllustration,
 } from '../../shared/ui/index.ts';
 
@@ -75,20 +76,23 @@ export function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-            Panel de operación
-          </p>
-          <h1
-            className="mt-1 text-2xl font-light text-[var(--text-heading)] tracking-tight"
-            data-testid="dashboard-heading"
-          >
-            Hola, {user.fullName}
-          </h1>
-          <p className="mt-1 text-sm text-[var(--text-body)]">
-            Sesión iniciada como <span className="font-medium">{ROLE_LABELS[user.role]}</span>
-            {organization ? ` en ${organization.name}` : ' en la consola central de Tap'}.
-          </p>
+        <div className="flex items-start sm:items-center gap-4">
+          <TapMark className="h-12 w-12 sm:h-14 sm:w-14 shrink-0" />
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
+              Tap · Panel de operación
+            </p>
+            <h1
+              className="mt-1 text-2xl font-light text-[var(--text-heading)] tracking-tight"
+              data-testid="dashboard-heading"
+            >
+              Hola, {user.fullName}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-body)]">
+              Sesión iniciada como <span className="font-medium">{ROLE_LABELS[user.role]}</span>
+              {organization ? ` en ${organization.name}` : ' en la consola central de Tap'}.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
