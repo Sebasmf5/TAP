@@ -1,14 +1,23 @@
 import type {
   DocumentType,
+  GoogleAuthUrlResponse,
   PersonType,
   PublicCheckinEventInfo,
   PublicCheckinLookupResponse,
   PublicCheckinSubmitResponse,
 } from '@tap/contracts';
-import { CheckCircle2, Clock, CloudOff, MapPin, ShieldCheck, UserCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  CloudOff,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  UserCheck,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
-import { ApiClientError, apiRequest } from '../../shared/api/http-client.ts';
+import { ApiClientError, apiRequest, isDemoModeActive } from '../../shared/api/http-client.ts';
 import {
   cachePublicEventInfo,
   getCachedPublicEventInfo,
@@ -57,6 +66,8 @@ export function PublicCheckinPage() {
   const [walkInGuardianPhone, setWalkInGuardianPhone] = useState('');
   const [acceptedConsent, setAcceptedConsent] = useState(false);
   const [walkInMarketingOptIn, setWalkInMarketingOptIn] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [googlePrefillHint, setGooglePrefillHint] = useState<string | null>(null);
 
   // Resultado final
   const [submitResult, setSubmitResult] = useState<PublicCheckinSubmitResponse | null>(null);
@@ -107,6 +118,58 @@ export function PublicCheckinPage() {
       active = false;
     };
   }, [code]);
+
+  // Si el participante regresó de autocompletado con Google, recupera su nombre y correo sin PII en la URL
+  useEffect(() => {
+    if (!code || isDemoModeActive()) return;
+    let active = true;
+    void (async () => {
+      try {
+        const prefill = await apiRequest<{ fullName: string | null; email: string | null }>(
+          '/auth/google/prefill',
+          { skipAuthRefresh: true },
+        );
+        if (!active) return;
+        if (prefill.fullName || prefill.email) {
+          if (prefill.fullName) setWalkInFullName(prefill.fullName);
+          if (prefill.email) setWalkInEmail(prefill.email);
+          setShowWalkInForm(true);
+          setGooglePrefillHint('Nombre y correo completados con tu cuenta de Google.');
+        }
+      } catch {
+        // Ignorar si no existe sesión de autocompletado
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [code]);
+
+  const handleGooglePrefill = async () => {
+    if (!code) return;
+    setGooglePrefillHint(null);
+    if (isDemoModeActive()) {
+      setWalkInFullName('Laura Sofía Andrade');
+      setWalkInEmail('laura.andrade@correo.edu.co');
+      setGooglePrefillHint('Datos completados en modo demostración.');
+      return;
+    }
+    try {
+      const qs = new URLSearchParams({
+        mode: 'prefill',
+        returnTo: `/c/${code}`,
+      });
+      const res = await apiRequest<GoogleAuthUrlResponse>(`/auth/google?${qs.toString()}`, {
+        method: 'GET',
+        skipAuthRefresh: true,
+      });
+      window.location.assign(res.authorizationUrl);
+    } catch {
+      setGooglePrefillHint(
+        'El autocompletado con Google no está activo en este servidor; usa el teclado de tu celular.',
+      );
+    }
+  };
 
   const markInteractionStart = () => {
     if (interactionStartedAtRef.current === null) {
@@ -549,13 +612,41 @@ export function PublicCheckinPage() {
                 {/* Campos adicionales cuando la persona es nueva y el evento permite `allow_walk_in` */}
                 {showWalkInForm && (
                   <div
-                    className="pt-2 border-t border-[var(--border)] space-y-3"
+                    className="pt-3 border-t border-[var(--border)] space-y-3.5"
                     data-testid="checkin-walkin-section"
                   >
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Es tu primera vez en esta entidad. Completa tus datos básicos para quedar
-                      registrado:
-                    </p>
+                    <div className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-raised)] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div>
+                        <p className="text-xs font-medium text-[var(--text-heading)] flex items-center gap-1.5">
+                          <Sparkles
+                            className="h-3.5 w-3.5 text-[var(--action)]"
+                            aria-hidden="true"
+                          />
+                          ¡Bienvenido! Solo toma 15 segundos esta primera vez
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          En próximos eventos entrarás solo con tu documento.
+                        </p>
+                      </div>
+                      {isOnline && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleGooglePrefill()}
+                          className="shrink-0"
+                          data-testid="walkin-google-prefill-btn"
+                        >
+                          Autocompletar con Google
+                        </Button>
+                      )}
+                    </div>
+
+                    {googlePrefillHint && (
+                      <p className="text-xs text-[var(--text-heading)] bg-[var(--accent-wash)] border border-[var(--border)] rounded-[var(--radius-control)] px-3 py-2">
+                        {googlePrefillHint}
+                      </p>
+                    )}
 
                     <div>
                       <label
@@ -568,6 +659,7 @@ export function PublicCheckinPage() {
                         id="walkin-fullname"
                         data-testid="walkin-fullname-input"
                         type="text"
+                        autoComplete="name"
                         required
                         minLength={3}
                         value={walkInFullName}
@@ -577,61 +669,101 @@ export function PublicCheckinPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label
-                          htmlFor="walkin-code"
-                          className="block text-xs font-medium text-[var(--text-heading)] mb-1"
-                        >
-                          Código institucional (opcional)
-                        </label>
-                        <input
-                          id="walkin-code"
-                          type="text"
-                          value={walkInInstitutionalCode}
-                          onChange={(e) => setWalkInInstitutionalCode(e.target.value)}
-                          placeholder="Ej. 20261099"
-                          className="w-full h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 font-mono text-sm text-[var(--text-heading)]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="walkin-person-type"
-                          className="block text-xs font-medium text-[var(--text-heading)] mb-1"
-                        >
-                          Vinculación
-                        </label>
-                        <select
-                          id="walkin-person-type"
-                          value={walkInPersonType}
-                          onChange={(e) => setWalkInPersonType(e.target.value as PersonType)}
-                          className="w-full h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-heading)]"
-                        >
-                          <option value="student">Estudiante</option>
-                          <option value="teacher">Docente</option>
-                          <option value="staff">Administrativo / Funcionario</option>
-                          <option value="affiliate">Afiliado</option>
-                          <option value="external">Visitante externo</option>
-                        </select>
-                      </div>
-                    </div>
-
                     <div>
                       <label
                         htmlFor="walkin-email"
                         className="block text-xs font-medium text-[var(--text-heading)] mb-1"
                       >
-                        Correo electrónico (opcional, para certificados)
+                        Correo electrónico (para enviarte tu certificado)
                       </label>
                       <input
                         id="walkin-email"
                         type="email"
+                        autoComplete="email"
                         value={walkInEmail}
                         onChange={(e) => setWalkInEmail(e.target.value)}
                         placeholder="nombre@correo.edu.co"
                         className="w-full h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-heading)]"
                       />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="block text-xs font-medium text-[var(--text-heading)]">
+                        Vinculación
+                      </span>
+                      <div className="flex flex-wrap gap-2" role="group" aria-label="Vinculación">
+                        {(
+                          [
+                            { id: 'student', label: 'Estudiante' },
+                            { id: 'teacher', label: 'Docente' },
+                            { id: 'administrative', label: 'Administrativo' },
+                            { id: 'external', label: 'Externo' },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setWalkInPersonType(opt.id)}
+                            className={`px-3 py-1.5 rounded-[var(--radius-pill)] border text-xs transition-colors ${
+                              walkInPersonType === opt.id
+                                ? 'border-[var(--action)] bg-[var(--accent-wash)] text-[var(--text-heading)] font-medium'
+                                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-body)] hover:bg-[var(--surface-hover)]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowOptionalFields((prev) => !prev)}
+                        className="text-xs text-[var(--link)] hover:underline"
+                      >
+                        {showOptionalFields
+                          ? '− Ocultar campos opcionales'
+                          : '+ Agregar teléfono o código estudiantil (opcional)'}
+                      </button>
+
+                      {showOptionalFields && (
+                        <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              htmlFor="walkin-code"
+                              className="block text-xs font-medium text-[var(--text-heading)] mb-1"
+                            >
+                              Código institucional
+                            </label>
+                            <input
+                              id="walkin-code"
+                              type="text"
+                              value={walkInInstitutionalCode}
+                              onChange={(e) => setWalkInInstitutionalCode(e.target.value)}
+                              placeholder="Ej. 20261099"
+                              className="w-full h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 font-mono text-sm text-[var(--text-heading)]"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor="walkin-phone"
+                              className="block text-xs font-medium text-[var(--text-heading)] mb-1"
+                            >
+                              Celular
+                            </label>
+                            <input
+                              id="walkin-phone"
+                              type="tel"
+                              autoComplete="tel"
+                              value={walkInPhone}
+                              onChange={(e) => setWalkInPhone(e.target.value)}
+                              placeholder="Ej. 3001234567"
+                              className="w-full h-11 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-heading)]"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <label className="flex items-center gap-2 text-xs text-[var(--text-heading)] cursor-pointer">

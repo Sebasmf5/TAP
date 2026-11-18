@@ -699,6 +699,100 @@ export class AccessService {
     return session;
   }
 
+  async exchangeGoogleForProfile(code: string): Promise<{
+    sub: string;
+    email: string;
+    fullName: string;
+  }> {
+    if (!this.googleClient || !this.googleClient.isConfigured()) {
+      throw new ValidationError(
+        'El autocompletado con Google no está configurado en este entorno.',
+      );
+    }
+    const googleUser = await this.googleClient.exchangeCodeForUser(code);
+    if (!googleUser.emailVerified) {
+      throw new UnauthorizedError('Tu cuenta de Google no tiene un correo verificado.');
+    }
+    return {
+      sub: googleUser.sub,
+      email: googleUser.email.trim().toLowerCase(),
+      fullName: googleUser.name?.trim() || googleUser.email.split('@')[0] || 'Participante',
+    };
+  }
+
+  async completeGoogleRegistration(params: {
+    code: string;
+    organizationName: string;
+    organizationType: OrganizationType;
+    servicePlan: ServiceModulePlan;
+    ip: string;
+    userAgent?: string;
+  }): Promise<SessionIssueResult> {
+    if (!this.registerOrganizationForSignup) {
+      throw new ForbiddenError('El registro público de entidades no está habilitado.');
+    }
+    const profile = await this.exchangeGoogleForProfile(params.code);
+    const existing = await this.repository.findUserByEmail(profile.email);
+    if (existing) {
+      if (existing.status !== 'active') {
+        throw new UnauthorizedError('Tu cuenta se encuentra deshabilitada.');
+      }
+      return this.issueSession({
+        user: existing,
+        ip: params.ip,
+        userAgent: params.userAgent,
+      });
+    }
+
+    const { organizationId } = await this.registerOrganizationForSignup({
+      organizationName: params.organizationName,
+      organizationType: params.organizationType,
+      servicePlan: params.servicePlan,
+    });
+
+    const now = this.clock.now();
+    const unusableSecret = randomBytes(32).toString('base64url');
+    const user: StaffUser = {
+      id: this.idGenerator.nextId(),
+      organizationId,
+      email: profile.email,
+      fullName: profile.fullName,
+      passwordHash: await this.passwordHasher.hash(unusableSecret),
+      role: 'org_admin',
+      status: 'active',
+      tokenVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.repository.createUser(user);
+    await this.repository.createOAuthAccount({
+      id: this.idGenerator.nextId(),
+      userId: user.id,
+      provider: 'google',
+      providerAccountId: profile.sub,
+      email: profile.email,
+      createdAt: now,
+    });
+
+    const session = await this.issueSession({
+      user,
+      ip: params.ip,
+      userAgent: params.userAgent,
+    });
+
+    await this.auditLog.record({
+      organizationId,
+      actorUserId: user.id,
+      action: 'auth.register_organization_google',
+      targetType: 'user',
+      targetId: user.id,
+      ipHash: hashIpAddress(params.ip),
+      metadata: { servicePlan: params.servicePlan },
+    });
+
+    return session;
+  }
+
   /**
    * Crea un usuario inicial (para semillas o pruebas) validando fortaleza de contraseña.
    */

@@ -5,7 +5,9 @@ import {
   CreateUserRequestSchema,
   GoogleAuthUrlResponseSchema,
   LoginRequestSchema,
+  OrganizationTypeSchema,
   RegisterOrganizationRequestSchema,
+  ServiceModulePlanSchema,
   UpdateUserRequestSchema,
   UserProfileSchema,
 } from '@tap/contracts';
@@ -17,6 +19,7 @@ import type { AccessService } from '../application/use-cases.ts';
 
 export const REFRESH_COOKIE_NAME = 'tap_refresh_token';
 export const OAUTH_STATE_COOKIE_NAME = 'tap_oauth_state';
+export const PREFILL_COOKIE_NAME = 'tap_prefill_profile';
 export const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
 export function extractBearerToken(authorizationHeader: string | undefined): string {
@@ -209,15 +212,33 @@ export function createAccessRoutes(deps: {
       {
         schema: {
           tags: ['access'],
-          summary: 'Obtiene la URL de autorización OIDC con Google',
+          summary: 'Obtiene la URL de autorización OIDC con Google (login, registro o prellenado)',
+          querystring: z.object({
+            mode: z.enum(['login', 'register', 'prefill']).optional().default('login'),
+            organizationName: z.string().trim().min(2).max(140).optional(),
+            organizationType: OrganizationTypeSchema.optional(),
+            servicePlan: ServiceModulePlanSchema.optional(),
+            returnTo: z.string().trim().max(120).optional(),
+          }),
           response: {
             200: GoogleAuthUrlResponseSchema,
           },
         },
       },
-      async (_req, reply) => {
+      async (req, reply) => {
         const { authorizationUrl, state } = deps.service.buildGoogleAuthorizationUrl();
-        reply.setCookie(OAUTH_STATE_COOKIE_NAME, state, {
+        const cookiePayload =
+          req.query.mode === 'login'
+            ? state
+            : JSON.stringify({
+                state,
+                mode: req.query.mode,
+                organizationName: req.query.organizationName,
+                organizationType: req.query.organizationType,
+                servicePlan: req.query.servicePlan,
+                returnTo: req.query.returnTo,
+              });
+        reply.setCookie(OAUTH_STATE_COOKIE_NAME, cookiePayload, {
           httpOnly: true,
           secure: deps.cookieSecure,
           sameSite: 'lax',
@@ -241,18 +262,69 @@ export function createAccessRoutes(deps: {
         },
       },
       async (req, reply) => {
-        const expectedState = req.cookies?.[OAUTH_STATE_COOKIE_NAME];
+        const rawCookieState = req.cookies?.[OAUTH_STATE_COOKIE_NAME];
         reply.clearCookie(OAUTH_STATE_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
-        if (!expectedState || expectedState !== req.query.state) {
+        if (!rawCookieState) {
           throw new UnauthorizedError('El estado de validación OAuth no coincide.');
         }
 
+        let parsedMeta: {
+          state: string;
+          mode?: 'login' | 'register' | 'prefill';
+          organizationName?: string;
+          organizationType?: z.infer<typeof OrganizationTypeSchema>;
+          servicePlan?: z.infer<typeof ServiceModulePlanSchema>;
+          returnTo?: string;
+        } = { state: rawCookieState, mode: 'login' };
+
+        if (rawCookieState.startsWith('{')) {
+          try {
+            parsedMeta = JSON.parse(rawCookieState) as typeof parsedMeta;
+          } catch {
+            throw new UnauthorizedError('El estado de validación OAuth no coincide.');
+          }
+        }
+
+        if (parsedMeta.state !== req.query.state) {
+          throw new UnauthorizedError('El estado de validación OAuth no coincide.');
+        }
+
+        if (parsedMeta.mode === 'prefill') {
+          const profile = await deps.service.exchangeGoogleForProfile(req.query.code);
+          reply.setCookie(
+            PREFILL_COOKIE_NAME,
+            JSON.stringify({ fullName: profile.fullName, email: profile.email }),
+            {
+              httpOnly: true,
+              secure: deps.cookieSecure,
+              sameSite: 'lax',
+              path: `${REFRESH_COOKIE_PATH}/google/prefill`,
+              maxAge: 300,
+            },
+          );
+          const safeReturnTo =
+            parsedMeta.returnTo && /^\/(?:c|p)\/[A-Za-z0-9_-]+$/i.test(parsedMeta.returnTo)
+              ? parsedMeta.returnTo
+              : '/login';
+          return reply.redirect(`${deps.appUrl}${safeReturnTo}`);
+        }
+
         const userAgentHeader = req.headers['user-agent'];
-        const session = await deps.service.completeGoogleCallback({
-          code: req.query.code,
-          ip: req.ip,
-          userAgent: typeof userAgentHeader === 'string' ? userAgentHeader : undefined,
-        });
+        const session =
+          parsedMeta.mode === 'register' && parsedMeta.organizationName
+            ? await deps.service.completeGoogleRegistration({
+                code: req.query.code,
+                organizationName: parsedMeta.organizationName,
+                organizationType: parsedMeta.organizationType ?? 'institucion_educativa',
+                servicePlan: parsedMeta.servicePlan ?? 'attendance_only',
+                ip: req.ip,
+                userAgent: typeof userAgentHeader === 'string' ? userAgentHeader : undefined,
+              })
+            : await deps.service.completeGoogleCallback({
+                code: req.query.code,
+                ip: req.ip,
+                userAgent: typeof userAgentHeader === 'string' ? userAgentHeader : undefined,
+              });
 
         setRefreshCookie(
           reply,
@@ -263,6 +335,39 @@ export function createAccessRoutes(deps: {
         );
 
         return reply.redirect(`${deps.appUrl}/app`);
+      },
+    );
+
+    typed.get(
+      '/auth/google/prefill',
+      {
+        schema: {
+          tags: ['access'],
+          summary:
+            'Lee el perfil temporal de Google para autocompletar registro público sin PII en URL',
+          response: {
+            200: z.object({
+              fullName: z.string().nullable(),
+              email: z.string().nullable(),
+            }),
+          },
+        },
+      },
+      async (req, reply) => {
+        const raw = req.cookies?.[PREFILL_COOKIE_NAME];
+        reply.clearCookie(PREFILL_COOKIE_NAME, { path: `${REFRESH_COOKIE_PATH}/google/prefill` });
+        if (!raw) {
+          return { fullName: null, email: null };
+        }
+        try {
+          const parsed = JSON.parse(raw) as { fullName?: string; email?: string };
+          return {
+            fullName: parsed.fullName ?? null,
+            email: parsed.email ?? null,
+          };
+        } catch {
+          return { fullName: null, email: null };
+        }
       },
     );
 

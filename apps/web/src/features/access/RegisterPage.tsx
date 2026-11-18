@@ -1,8 +1,8 @@
-import type { OrganizationType, ServiceModulePlan } from '@tap/contracts';
+import type { GoogleAuthUrlResponse, OrganizationType, ServiceModulePlan } from '@tap/contracts';
 import { ArrowLeft, Check, Megaphone, Package, QrCode, Users } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
-import { ApiClientError } from '../../shared/api/http-client.ts';
+import { ApiClientError, apiRequest, isDemoModeActive } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
 import { Badge, Button, Card, Input, ThemeToggle } from '../../shared/ui/index.ts';
 
@@ -125,6 +125,52 @@ export function RegisterPage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    setErrorMessage(null);
+    if (organizationName.trim().length < 2) {
+      setErrorMessage('Primero escribe el nombre de tu entidad u organización.');
+      return;
+    }
+
+    if (isDemoModeActive()) {
+      setSubmitting(true);
+      try {
+        await register({
+          organizationName: organizationName.trim(),
+          organizationType,
+          servicePlan,
+          adminFullName: adminFullName.trim() || 'Coordinación Google Demo',
+          adminEmail: adminEmail.trim() || 'google.demo@entidad.tap',
+          adminPassword: 'DemoGoogleOAuthPassword2026!',
+        });
+        void navigate('/app', { replace: true });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    try {
+      const qs = new URLSearchParams({
+        mode: 'register',
+        organizationName: organizationName.trim(),
+        organizationType,
+        servicePlan,
+      });
+      const res = await apiRequest<GoogleAuthUrlResponse>(`/auth/google?${qs.toString()}`, {
+        method: 'GET',
+        skipAuthRefresh: true,
+      });
+      window.location.assign(res.authorizationUrl);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof ApiClientError
+          ? err.detail
+          : 'El registro con Google no está configurado en este servidor.',
+      );
     }
   };
 
@@ -352,15 +398,27 @@ export function RegisterPage() {
                 <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>Se creará tu sede principal con punto QR listo para usar.</span>
               </div>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={submitting}
-                className="w-full sm:w-auto"
-                data-testid="register-submit"
-              >
-                {submitting ? 'Creando entidad…' : 'Crear entidad y adquirir servicio'}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={submitting}
+                  onClick={() => void handleGoogleRegister()}
+                  className="w-full sm:w-auto"
+                  data-testid="register-google-btn"
+                >
+                  Registrar con Google
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                  data-testid="register-submit"
+                >
+                  {submitting ? 'Creando entidad…' : 'Crear entidad y adquirir servicio'}
+                </Button>
+              </div>
             </div>
           </form>
         </Card>

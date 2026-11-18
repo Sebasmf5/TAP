@@ -115,7 +115,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   try {
     response = await execute(memoryAccessToken);
   } catch (networkError) {
-    if (isStaticPortfolioHost()) {
+    const isManualAuth = normalizedPath === '/auth/login' || normalizedPath === '/auth/register';
+    if (isStaticPortfolioHost() && !isManualAuth) {
       enableDemoMode(false);
       return handleDemoRequest<T>(normalizedPath, options.method ?? 'GET', options.body);
     }

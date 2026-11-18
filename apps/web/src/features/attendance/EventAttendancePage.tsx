@@ -9,6 +9,8 @@ import jsQR from 'jsqr';
 import {
   Camera,
   CameraOff,
+  CheckCircle2,
+  Clock,
   CloudOff,
   ImageUp,
   QrCode,
@@ -95,7 +97,20 @@ export function EventAttendancePage() {
     message: string;
     maskedName?: string | null;
   } | null>(null);
+  const [scanModalFeedback, setScanModalFeedback] = useState<{
+    outcome: 'registered' | 'already_registered' | 'error';
+    message: string;
+    maskedName?: string | null;
+  } | null>(null);
   const [submittingEntry, setSubmittingEntry] = useState(false);
+
+  useEffect(() => {
+    if (!scanModalFeedback) return;
+    const timer = setTimeout(() => {
+      setScanModalFeedback(null);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, [scanModalFeedback]);
 
   // Modal de anulación auditada
   const [voidTarget, setVoidTarget] = useState<AttendanceRecordDto | null>(null);
@@ -208,11 +223,13 @@ export function EventAttendancePage() {
           maskedLabel: `Carné QR ${maskIdentifierForQueue(cleanToken)}`,
         });
         setKioskQrToken('');
-        setEntryFeedback({
-          outcome: 'registered',
+        const offlineMsg = {
+          outcome: 'registered' as const,
           message:
             'Sin conexión Wi-Fi: asistencia guardada en cola local. Se enviará automáticamente al reconectar.',
-        });
+        };
+        setEntryFeedback(offlineMsg);
+        setScanModalFeedback(offlineMsg);
         setSubmittingEntry(false);
         return;
       }
@@ -223,11 +240,14 @@ export function EventAttendancePage() {
           body: payload,
         });
         setKioskQrToken('');
-        setEntryFeedback({
-          outcome: res.outcome === 'already_registered' ? 'already_registered' : 'registered',
+        const feedback = {
+          outcome: (res.outcome === 'already_registered' ? 'already_registered' : 'registered') as
+            'registered' | 'already_registered',
           message: res.message,
           maskedName: res.maskedName,
-        });
+        };
+        setEntryFeedback(feedback);
+        setScanModalFeedback(feedback);
         reload();
       } catch (err) {
         if (isLikelyNetworkError(err)) {
@@ -238,19 +258,23 @@ export function EventAttendancePage() {
             maskedLabel: `Carné QR ${maskIdentifierForQueue(cleanToken)}`,
           });
           setKioskQrToken('');
-          setEntryFeedback({
-            outcome: 'registered',
+          const retryMsg = {
+            outcome: 'registered' as const,
             message:
               'Conexión perdida: asistencia guardada en cola local para sincronizarse al volver el internet.',
-          });
+          };
+          setEntryFeedback(retryMsg);
+          setScanModalFeedback(retryMsg);
         } else {
-          setEntryFeedback({
-            outcome: 'error',
+          const errMsg = {
+            outcome: 'error' as const,
             message:
               err instanceof ApiClientError
                 ? err.detail
                 : 'No se pudo procesar el código QR del carné.',
-          });
+          };
+          setEntryFeedback(errMsg);
+          setScanModalFeedback(errMsg);
         }
       } finally {
         setSubmittingEntry(false);
@@ -949,6 +973,62 @@ export function EventAttendancePage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ventana modal de confirmación al escanear carné QR */}
+      {scanModalFeedback && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Resultado del escaneo QR"
+          data-testid="kiosk-scan-result-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--canvas)]/75 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-sm rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+              {scanModalFeedback.outcome === 'registered' ? (
+                <CheckCircle2
+                  className="h-6 w-6 text-[var(--status-success-text)]"
+                  aria-hidden="true"
+                />
+              ) : scanModalFeedback.outcome === 'already_registered' ? (
+                <Clock className="h-6 w-6 text-[var(--status-warning-text)]" aria-hidden="true" />
+              ) : (
+                <ShieldAlert
+                  className="h-6 w-6 text-[var(--status-danger-text)]"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-medium text-[var(--text-heading)]">
+                {scanModalFeedback.outcome === 'registered'
+                  ? 'Usuario registrado'
+                  : scanModalFeedback.outcome === 'already_registered'
+                    ? 'Usuario ya registrado'
+                    : 'No se pudo registrar'}
+              </h3>
+              {scanModalFeedback.maskedName && (
+                <p className="text-sm font-medium text-[var(--text-heading)]">
+                  {scanModalFeedback.maskedName}
+                </p>
+              )}
+              <p className="text-xs text-[var(--text-body)]">{scanModalFeedback.message}</p>
+            </div>
+
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className="w-full"
+              onClick={() => setScanModalFeedback(null)}
+              data-testid="close-scan-result-modal-btn"
+            >
+              Listo · Escanear siguiente
+            </Button>
           </div>
         </div>
       )}
