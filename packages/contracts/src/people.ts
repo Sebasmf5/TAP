@@ -17,6 +17,8 @@ export const ConsentChannelSchema = z.enum([
   'public_loan',
   'staff_assisted',
   'import',
+  'marketing_opt_in',
+  'marketing_opt_out',
 ]);
 export type ConsentChannel = z.infer<typeof ConsentChannelSchema>;
 

@@ -10,6 +10,7 @@ import {
   Card,
   Input,
   QrScannerModal,
+  TapHeroIllustration,
   ThemeToggle,
   resolveTapInternalPath,
 } from '../../shared/ui/index.ts';
@@ -152,6 +153,10 @@ export function LoginPage() {
                 </strong>
                 . Los participantes escanean el QR desde su celular sin crear cuentas.
               </p>
+            </div>
+
+            <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 pt-3 pb-1 overflow-hidden">
+              <TapHeroIllustration className="w-full max-w-[460px] mx-auto h-auto" />
             </div>
 
             {scanMessage && (

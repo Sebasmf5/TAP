@@ -1,5 +1,8 @@
 import type {
+  FeatureKey,
   ListNotificationsResponse,
+  MarketingCampaignRequest,
+  MarketingCampaignResponse,
   NotificationDto,
   NotificationStatus,
   NotificationTemplateKey,
@@ -7,6 +10,7 @@ import type {
 import {
   ForbiddenError,
   NotFoundError,
+  ValidationError,
   type AuditLog,
   type Clock,
   type IdGenerator,
@@ -16,6 +20,7 @@ import {
 import {
   DEFAULT_NOTIFICATION_TEMPLATES,
   interpolateNotificationTemplate,
+  isWithinLaw2300Schedule,
   type NotificationChannel,
   type NotificationRecord,
 } from '../domain/entities.ts';
@@ -88,6 +93,26 @@ export class NotificationsService {
     certificateId: string,
     deliveredAt: Date,
   ) => Promise<void>;
+  private readonly assertFeatureEnabled?: (
+    organizationId: string,
+    feature: FeatureKey,
+  ) => Promise<void>;
+  private readonly listMarketingRecipients?: (organizationId: string) => Promise<{
+    consentedRecipients: Array<{
+      personId: string;
+      fullName: string;
+      email: string;
+      qrToken: string;
+    }>;
+    skippedWithoutConsentCount: number;
+  }>;
+  private readonly optOutMarketingByQrToken?: (
+    organizationId: string,
+    qrToken: string,
+    ipHash?: string | null,
+  ) => Promise<boolean>;
+  private readonly getOrganizationName?: (organizationId: string) => Promise<string | null>;
+  private readonly appUrl: string;
 
   public constructor(deps: {
     repository: NotificationsRepository;
@@ -101,6 +126,23 @@ export class NotificationsService {
       certificateId: string,
       deliveredAt: Date,
     ) => Promise<void>;
+    assertFeatureEnabled?: (organizationId: string, feature: FeatureKey) => Promise<void>;
+    listMarketingRecipients?: (organizationId: string) => Promise<{
+      consentedRecipients: Array<{
+        personId: string;
+        fullName: string;
+        email: string;
+        qrToken: string;
+      }>;
+      skippedWithoutConsentCount: number;
+    }>;
+    optOutMarketingByQrToken?: (
+      organizationId: string,
+      qrToken: string,
+      ipHash?: string | null,
+    ) => Promise<boolean>;
+    getOrganizationName?: (organizationId: string) => Promise<string | null>;
+    appUrl?: string;
   }) {
     this.repository = deps.repository;
     this.channel = deps.channel;
@@ -109,6 +151,11 @@ export class NotificationsService {
     this.clock = deps.clock;
     this.auditLog = deps.auditLog;
     this.onCertificateDelivered = deps.onCertificateDelivered;
+    this.assertFeatureEnabled = deps.assertFeatureEnabled;
+    this.listMarketingRecipients = deps.listMarketingRecipients;
+    this.optOutMarketingByQrToken = deps.optOutMarketingByQrToken;
+    this.getOrganizationName = deps.getOrganizationName;
+    this.appUrl = (deps.appUrl ?? 'http://localhost:5173').replace(/\/$/, '');
   }
 
   public async registerWorkers(): Promise<void> {
@@ -271,5 +318,87 @@ export class NotificationsService {
     });
 
     return toNotificationDto(delivered ?? existing);
+  }
+
+  /**
+   * Envía una campaña publicitaria de la entidad suscrita únicamente a participantes
+   * con consentimiento expreso vigente (Ley 1581 de 2012 y Ley 2300 de 2023).
+   */
+  public async sendMarketingCampaign(
+    actor: StaffActor,
+    input: MarketingCampaignRequest,
+  ): Promise<MarketingCampaignResponse> {
+    const orgId = assertOperatorOrAdmin(actor);
+    if (this.assertFeatureEnabled) {
+      await this.assertFeatureEnabled(orgId, 'marketing');
+    }
+
+    const sentAt = this.clock.now();
+    if (!isWithinLaw2300Schedule(sentAt)) {
+      throw new ValidationError(
+        'Por la Ley 2300 de 2023, las campañas publicitarias solo pueden enviarse de lunes a viernes (7:00 a. m. - 7:00 p. m.) y sábados (8:00 a. m. - 3:00 p. m.) hora Colombia.',
+      );
+    }
+
+    const recipientsInfo = this.listMarketingRecipients
+      ? await this.listMarketingRecipients(orgId)
+      : { consentedRecipients: [], skippedWithoutConsentCount: 0 };
+
+    const orgName = (await this.getOrganizationName?.(orgId)) ?? 'Tap';
+    const campaignKey = this.idGenerator.nextId();
+    const ctaBlock =
+      input.ctaUrl && input.ctaLabel
+        ? `<a href="${input.ctaUrl}" style="display:inline-block;padding:10px 16px;background:#533afd;color:#ffffff;text-decoration:none;border-radius:4px;">${input.ctaLabel}</a>`
+        : input.ctaUrl
+          ? `<a href="${input.ctaUrl}">${input.ctaUrl}</a>`
+          : '';
+
+    for (const recipient of recipientsInfo.consentedRecipients) {
+      const unsubscribeUrl = `${this.appUrl}/api/v1/public/marketing-unsubscribe?org=${encodeURIComponent(orgId)}&token=${encodeURIComponent(recipient.qrToken)}`;
+      await this.enqueueNotification({
+        organizationId: orgId,
+        template: 'marketing_campaign',
+        recipient: recipient.email,
+        variables: {
+          holder_name: recipient.fullName,
+          organization_name: orgName,
+          campaign_subject: input.subject,
+          campaign_message: input.message,
+          cta_block: ctaBlock,
+          cta_url: input.ctaUrl ?? '',
+          unsubscribe_url: unsubscribeUrl,
+        },
+        relatedEntityType: 'marketing_campaign',
+        relatedEntityId: campaignKey,
+        deduplicationKey: `marketing:${campaignKey}:${recipient.personId}`,
+      });
+    }
+
+    await this.auditLog.record({
+      organizationId: orgId,
+      actorUserId: actor.userId,
+      action: 'notifications.marketing_campaign_queued',
+      targetType: 'marketing_campaign',
+      targetId: campaignKey,
+      metadata: {
+        recipientsCount: recipientsInfo.consentedRecipients.length,
+        skippedWithoutConsentCount: recipientsInfo.skippedWithoutConsentCount,
+      },
+    });
+
+    return {
+      recipientsCount: recipientsInfo.consentedRecipients.length,
+      skippedWithoutConsentCount: recipientsInfo.skippedWithoutConsentCount,
+      sentAt: sentAt.toISOString(),
+    };
+  }
+
+  public async unsubscribeMarketingRecipient(params: {
+    organizationId: string;
+    qrToken: string;
+    ip?: string;
+  }): Promise<boolean> {
+    if (!this.optOutMarketingByQrToken) return false;
+    return this.optOutMarketingByQrToken(params.organizationId, params.qrToken, params.ip ?? null);
   }
 }

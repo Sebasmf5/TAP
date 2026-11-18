@@ -5,10 +5,17 @@ import type {
   PublicCheckinLookupResponse,
   PublicCheckinSubmitResponse,
 } from '@tap/contracts';
-import { CheckCircle2, Clock, MapPin, ShieldCheck, UserCheck } from 'lucide-react';
+import { CheckCircle2, Clock, CloudOff, MapPin, ShieldCheck, UserCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { ApiClientError, apiRequest } from '../../shared/api/http-client.ts';
+import {
+  cachePublicEventInfo,
+  getCachedPublicEventInfo,
+  isLikelyNetworkError,
+  maskIdentifierForQueue,
+} from '../../shared/offline/attendance-queue.ts';
+import { useOfflineAttendance } from '../../shared/offline/use-offline-attendance.ts';
 import { Badge, Button, Card } from '../../shared/ui/index.ts';
 
 function formatBogotaDateTime(iso: string): string {
@@ -49,6 +56,7 @@ export function PublicCheckinPage() {
   const [walkInGuardianName, setWalkInGuardianName] = useState('');
   const [walkInGuardianPhone, setWalkInGuardianPhone] = useState('');
   const [acceptedConsent, setAcceptedConsent] = useState(false);
+  const [walkInMarketingOptIn, setWalkInMarketingOptIn] = useState(false);
 
   // Resultado final
   const [submitResult, setSubmitResult] = useState<PublicCheckinSubmitResponse | null>(null);
@@ -57,6 +65,7 @@ export function PublicCheckinPage() {
 
   // Medición de tiempo en cliente (`client_duration_ms`, indicador del piloto B2.1)
   const interactionStartedAtRef = useRef<number | null>(null);
+  const { isOnline, pendingCount, queueAttendance } = useOfflineAttendance();
 
   useEffect(() => {
     if (!code) return;
@@ -70,6 +79,7 @@ export function PublicCheckinPage() {
         );
         if (!active) return;
         setInfo(data);
+        void cachePublicEventInfo(code, data);
         const allowed = data.event.allowedIdentificationModes;
         if (!allowed.includes('document') && allowed.includes('institutional_code')) {
           setIdentificationMode('institutional_code');
@@ -77,11 +87,17 @@ export function PublicCheckinPage() {
         setLoadError(null);
       } catch (err) {
         if (!active) return;
-        setLoadError(
-          err instanceof ApiClientError
-            ? err.detail
-            : 'No fue posible cargar la información del evento.',
-        );
+        const cached = await getCachedPublicEventInfo(code);
+        if (cached && active) {
+          setInfo(cached);
+          setLoadError(null);
+        } else {
+          setLoadError(
+            err instanceof ApiClientError
+              ? err.detail
+              : 'No fue posible cargar la información del evento.',
+          );
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -139,35 +155,61 @@ export function PublicCheckinPage() {
         }
       }
 
-      const response = await apiRequest<PublicCheckinSubmitResponse>(
-        `/public/checkin/${encodeURIComponent(code)}`,
-        {
-          method: 'POST',
-          skipAuthRefresh: true,
-          body: {
-            identificationMode,
-            identifier: identifier.trim(),
-            documentType: identificationMode === 'document' ? documentType : undefined,
-            sessionId: info.event.activeSession.id,
-            clientDurationMs: computeClientDurationMs(),
-            walkInRegistration: showWalkInForm
-              ? {
-                  documentType,
-                  documentNumber: identifier.trim(),
-                  fullName: walkInFullName.trim(),
-                  institutionalCode: walkInInstitutionalCode.trim() || null,
-                  email: walkInEmail.trim() || null,
-                  phone: walkInPhone.trim() || null,
-                  personType: walkInPersonType,
-                  isMinor: walkInIsMinor,
-                  guardianName: walkInIsMinor ? walkInGuardianName.trim() : null,
-                  guardianPhone: walkInIsMinor ? walkInGuardianPhone.trim() : null,
-                  acceptedDataConsent: true as const,
-                }
-              : undefined,
-          },
-        },
-      );
+      const endpoint = `/public/checkin/${encodeURIComponent(code)}`;
+      const body = {
+        identificationMode,
+        identifier: identifier.trim(),
+        documentType: identificationMode === 'document' ? documentType : undefined,
+        sessionId: info.event.activeSession.id,
+        clientDurationMs: computeClientDurationMs(),
+        walkInRegistration: showWalkInForm
+          ? {
+              documentType,
+              documentNumber: identifier.trim(),
+              fullName: walkInFullName.trim(),
+              institutionalCode: walkInInstitutionalCode.trim() || null,
+              email: walkInEmail.trim() || null,
+              phone: walkInPhone.trim() || null,
+              personType: walkInPersonType,
+              isMinor: walkInIsMinor,
+              guardianName: walkInIsMinor ? walkInGuardianName.trim() : null,
+              guardianPhone: walkInIsMinor ? walkInGuardianPhone.trim() : null,
+              acceptedDataConsent: true as const,
+              marketingOptIn: walkInMarketingOptIn,
+            }
+          : undefined,
+      };
+
+      const queueOffline = async () => {
+        await queueAttendance({
+          kind: 'public_checkin',
+          endpoint,
+          payload: body,
+          maskedLabel: `Check-in ${maskIdentifierForQueue(identifier)}`,
+        });
+        setSubmitResult({
+          outcome: 'registered',
+          attendanceId: null,
+          maskedName: showWalkInForm ? walkInFullName.trim() : 'Asistencia guardada localmente',
+          maskedDocument: maskIdentifierForQueue(identifier),
+          sessionNumber: info.event.activeSession.sessionNumber,
+          sessionLabel: info.event.activeSession.label,
+          checkedInAt: new Date().toISOString(),
+          message:
+            'Sin conexión Wi-Fi: tu asistencia quedó guardada en este dispositivo y se enviará automáticamente al reconectar.',
+        });
+      };
+
+      if (!isOnline) {
+        await queueOffline();
+        return;
+      }
+
+      const response = await apiRequest<PublicCheckinSubmitResponse>(endpoint, {
+        method: 'POST',
+        skipAuthRefresh: true,
+        body,
+      });
 
       if (response.outcome === 'needs_registration') {
         setShowWalkInForm(true);
@@ -176,6 +218,33 @@ export function PublicCheckinPage() {
         setSubmitResult(response);
       }
     } catch (err) {
+      if (isLikelyNetworkError(err)) {
+        const endpoint = `/public/checkin/${encodeURIComponent(code)}`;
+        await queueAttendance({
+          kind: 'public_checkin',
+          endpoint,
+          payload: {
+            identificationMode,
+            identifier: identifier.trim(),
+            documentType: identificationMode === 'document' ? documentType : undefined,
+            sessionId: info.event.activeSession.id,
+            clientDurationMs: computeClientDurationMs(),
+          },
+          maskedLabel: `Check-in ${maskIdentifierForQueue(identifier)}`,
+        });
+        setSubmitResult({
+          outcome: 'registered',
+          attendanceId: null,
+          maskedName: 'Asistencia guardada localmente',
+          maskedDocument: maskIdentifierForQueue(identifier),
+          sessionNumber: info.event.activeSession.sessionNumber,
+          sessionLabel: info.event.activeSession.label,
+          checkedInAt: new Date().toISOString(),
+          message:
+            'Conexión perdida: tu asistencia quedó guardada en este dispositivo y se enviará automáticamente al volver el Wi-Fi.',
+        });
+        return;
+      }
       setSubmitError(
         err instanceof ApiClientError
           ? err.detail
@@ -225,11 +294,19 @@ export function PublicCheckinPage() {
               </p>
             </div>
           </div>
-          {info && (
-            <span className="font-mono text-xs text-[var(--text-muted)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-1 rounded-[var(--radius-control)]">
-              {info.event.publicCode}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {(!isOnline || pendingCount > 0) && (
+              <Badge status="warning">
+                <CloudOff className="h-3 w-3 mr-1 inline" aria-hidden="true" />
+                {!isOnline ? 'Sin Wi-Fi' : `${pendingCount} por sincronizar`}
+              </Badge>
+            )}
+            {info && (
+              <span className="font-mono text-xs text-[var(--text-muted)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-1 rounded-[var(--radius-control)]">
+                {info.event.publicCode}
+              </span>
+            )}
+          </div>
         </header>
 
         {loading ? (
@@ -631,6 +708,20 @@ export function PublicCheckinPage() {
                         <span>
                           Acepto de manera previa, expresa e informada el tratamiento de mis datos
                           personales.
+                        </span>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 pt-1 text-xs text-[var(--text-body)] cursor-pointer border-t border-[var(--border)] mt-2 pt-2">
+                        <input
+                          type="checkbox"
+                          data-testid="walkin-marketing-checkbox"
+                          checked={walkInMarketingOptIn}
+                          onChange={(e) => setWalkInMarketingOptIn(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                        />
+                        <span>
+                          (Opcional) Autorizo recibir invitaciones a nuevos eventos y publicidad por
+                          correo electrónico conforme a la Ley 2300 de 2023.
                         </span>
                       </label>
                     </div>

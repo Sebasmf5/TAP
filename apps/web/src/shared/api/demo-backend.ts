@@ -135,6 +135,7 @@ let demoOrganization: OrganizationDto = {
     reports: true,
     kioskMode: true,
     googleSso: false,
+    marketing: false,
   },
   logoUrl: null,
   timezone: 'America/Bogota',
@@ -585,8 +586,13 @@ export async function handleDemoRequest<T>(
 
   // 1. Autenticación
   if (pathname === '/auth/register' && upperMethod === 'POST') {
+    const rawPlan = payload['servicePlan'];
     const servicePlan =
-      payload['servicePlan'] === 'inventory_only' ? 'inventory_only' : 'attendance_only';
+      rawPlan === 'inventory_only'
+        ? 'inventory_only'
+        : rawPlan === 'certificates_marketing'
+          ? 'certificates_marketing'
+          : 'attendance_only';
     const orgName =
       String(payload['organizationName'] ?? 'Nueva Entidad').trim() || 'Nueva Entidad';
     const orgType =
@@ -607,17 +613,8 @@ export async function handleDemoRequest<T>(
       type: orgType,
       plan: 'pilot',
       features:
-        servicePlan === 'attendance_only'
+        servicePlan === 'inventory_only'
           ? {
-              attendance: true,
-              certificates: true,
-              inventory: false,
-              loans: false,
-              reports: true,
-              kioskMode: true,
-              googleSso: false,
-            }
-          : {
               attendance: false,
               certificates: false,
               inventory: true,
@@ -625,6 +622,17 @@ export async function handleDemoRequest<T>(
               reports: true,
               kioskMode: false,
               googleSso: false,
+              marketing: false,
+            }
+          : {
+              attendance: true,
+              certificates: true,
+              inventory: false,
+              loans: false,
+              reports: true,
+              kioskMode: true,
+              googleSso: false,
+              marketing: servicePlan === 'certificates_marketing',
             },
     };
     demoUser = {
@@ -1676,6 +1684,34 @@ export async function handleDemoRequest<T>(
       items: demoNotifications,
     };
     return res as unknown as T;
+  }
+
+  if (pathname === '/notifications/marketing-campaign' && upperMethod === 'POST') {
+    const subject = String(payload['subject'] ?? 'Nuevo evento disponible');
+    const recipients = demoPeople.filter((p) => Boolean(p.email));
+    const nowIso = new Date().toISOString();
+    const newNotifications: NotificationDto[] = recipients.map((person) => ({
+      id: nextDemoId(),
+      organizationId: ORG_ID,
+      channel: 'email',
+      template: 'marketing_campaign',
+      recipient: person.email ?? 'participante@demo.tap',
+      subject,
+      status: 'sent',
+      attempts: 1,
+      lastError: null,
+      relatedEntityType: 'marketing_campaign',
+      relatedEntityId: null,
+      deduplicationKey: `demo-marketing-${Date.now()}-${person.id}`,
+      sentAt: nowIso,
+      createdAt: nowIso,
+    }));
+    demoNotifications = [...newNotifications, ...demoNotifications];
+    return {
+      recipientsCount: recipients.length,
+      skippedWithoutConsentCount: Math.max(0, demoPeople.length - recipients.length),
+      sentAt: nowIso,
+    } as unknown as T;
   }
 
   // 10. Reportes (/reports/dashboard)

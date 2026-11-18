@@ -68,8 +68,12 @@ export const GoogleAuthUrlResponseSchema = z.object({
 });
 export type GoogleAuthUrlResponse = z.infer<typeof GoogleAuthUrlResponseSchema>;
 
-/** Servicio adquirido por la entidad: únicamente asistencia rápida o inventarios, nunca ambos. */
-export const ServiceModulePlanSchema = z.enum(['attendance_only', 'inventory_only']);
+/** Servicio adquirido por la entidad (excluyente entre sí). */
+export const ServiceModulePlanSchema = z.enum([
+  'attendance_only',
+  'inventory_only',
+  'certificates_marketing',
+]);
 export type ServiceModulePlan = z.infer<typeof ServiceModulePlanSchema>;
 
 export const RegisterOrganizationRequestSchema = z.object({

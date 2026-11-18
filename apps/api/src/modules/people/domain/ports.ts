@@ -19,4 +19,5 @@ export interface PeopleRepository {
 
   recordConsent(consent: DataConsent): Promise<void>;
   findLatestConsent(organizationId: string, personId: string): Promise<DataConsent | null>;
+  listConsentsByOrganization(organizationId: string): Promise<DataConsent[]>;
 }

@@ -75,6 +75,7 @@ export const WalkInRegistrationDataSchema = z.object({
   guardianDocument: z.string().trim().max(32).nullable().optional(),
   guardianPhone: z.string().trim().max(32).nullable().optional(),
   acceptedDataConsent: z.literal(true),
+  marketingOptIn: z.boolean().optional().default(false),
 });
 export type WalkInRegistrationData = z.infer<typeof WalkInRegistrationDataSchema>;
 

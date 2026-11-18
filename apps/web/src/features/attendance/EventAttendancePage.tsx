@@ -6,7 +6,18 @@ import type {
   PublicCheckinSubmitResponse,
 } from '@tap/contracts';
 import jsQR from 'jsqr';
-import { Camera, CameraOff, ImageUp, QrCode, Radio, ShieldAlert, UserPlus } from 'lucide-react';
+import {
+  Camera,
+  CameraOff,
+  CloudOff,
+  ImageUp,
+  QrCode,
+  Radio,
+  RefreshCw,
+  ShieldAlert,
+  UserPlus,
+  Wifi,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
@@ -15,6 +26,11 @@ import {
   subscribeServerSentEvents,
 } from '../../shared/api/http-client.ts';
 import { useAuth } from '../../shared/auth/auth-context.tsx';
+import {
+  isLikelyNetworkError,
+  maskIdentifierForQueue,
+} from '../../shared/offline/attendance-queue.ts';
+import { useOfflineAttendance } from '../../shared/offline/use-offline-attendance.ts';
 import { Badge, Button, Card, StatCard } from '../../shared/ui/index.ts';
 
 function decodeQrFromCanvasSource(
@@ -92,6 +108,19 @@ export function EventAttendancePage() {
     setReloadKey((k) => k + 1);
   }, []);
 
+  const {
+    isOnline,
+    pendingCount,
+    syncing: syncingOffline,
+    lastSyncSummary,
+    queueAttendance,
+    syncNow,
+  } = useOfflineAttendance({
+    onSynced: () => {
+      reload();
+    },
+  });
+
   useEffect(() => {
     if (!eventId) return;
     let active = true;
@@ -165,17 +194,34 @@ export function EventAttendancePage() {
       setSubmittingEntry(true);
       setEntryFeedback(null);
 
+      const endpoint = `/events/${eventId}/attendance/scan`;
+      const payload = {
+        qrToken: cleanToken,
+        sessionId: selectedSessionId || undefined,
+      };
+
+      if (!isOnline) {
+        await queueAttendance({
+          kind: 'kiosk_scan',
+          endpoint,
+          payload,
+          maskedLabel: `Carné QR ${maskIdentifierForQueue(cleanToken)}`,
+        });
+        setKioskQrToken('');
+        setEntryFeedback({
+          outcome: 'registered',
+          message:
+            'Sin conexión Wi-Fi: asistencia guardada en cola local. Se enviará automáticamente al reconectar.',
+        });
+        setSubmittingEntry(false);
+        return;
+      }
+
       try {
-        const res = await apiRequest<PublicCheckinSubmitResponse>(
-          `/events/${eventId}/attendance/scan`,
-          {
-            method: 'POST',
-            body: {
-              qrToken: cleanToken,
-              sessionId: selectedSessionId || undefined,
-            },
-          },
-        );
+        const res = await apiRequest<PublicCheckinSubmitResponse>(endpoint, {
+          method: 'POST',
+          body: payload,
+        });
         setKioskQrToken('');
         setEntryFeedback({
           outcome: res.outcome === 'already_registered' ? 'already_registered' : 'registered',
@@ -184,18 +230,33 @@ export function EventAttendancePage() {
         });
         reload();
       } catch (err) {
-        setEntryFeedback({
-          outcome: 'error',
-          message:
-            err instanceof ApiClientError
-              ? err.detail
-              : 'No se pudo procesar el código QR del carné.',
-        });
+        if (isLikelyNetworkError(err)) {
+          await queueAttendance({
+            kind: 'kiosk_scan',
+            endpoint,
+            payload,
+            maskedLabel: `Carné QR ${maskIdentifierForQueue(cleanToken)}`,
+          });
+          setKioskQrToken('');
+          setEntryFeedback({
+            outcome: 'registered',
+            message:
+              'Conexión perdida: asistencia guardada en cola local para sincronizarse al volver el internet.',
+          });
+        } else {
+          setEntryFeedback({
+            outcome: 'error',
+            message:
+              err instanceof ApiClientError
+                ? err.detail
+                : 'No se pudo procesar el código QR del carné.',
+          });
+        }
       } finally {
         setSubmittingEntry(false);
       }
     },
-    [eventId, reload, selectedSessionId],
+    [eventId, isOnline, queueAttendance, reload, selectedSessionId],
   );
 
   // Escáner QR con cámara web en vivo y desde imagen
@@ -302,14 +363,34 @@ export function EventAttendancePage() {
     setSubmittingEntry(true);
     setEntryFeedback(null);
 
+    const endpoint = `/events/${eventId}/attendance`;
+    const payload = {
+      identificationMode: manualMode,
+      identifier: manualIdentifier.trim(),
+      sessionId: selectedSessionId || undefined,
+    };
+
+    if (!isOnline) {
+      await queueAttendance({
+        kind: 'staff_manual',
+        endpoint,
+        payload,
+        maskedLabel: `Manual ${maskIdentifierForQueue(manualIdentifier)}`,
+      });
+      setManualIdentifier('');
+      setEntryFeedback({
+        outcome: 'registered',
+        message:
+          'Sin conexión Wi-Fi: registro manual guardado en cola local. Se enviará al reconectar.',
+      });
+      setSubmittingEntry(false);
+      return;
+    }
+
     try {
-      const res = await apiRequest<PublicCheckinSubmitResponse>(`/events/${eventId}/attendance`, {
+      const res = await apiRequest<PublicCheckinSubmitResponse>(endpoint, {
         method: 'POST',
-        body: {
-          identificationMode: manualMode,
-          identifier: manualIdentifier.trim(),
-          sessionId: selectedSessionId || undefined,
-        },
+        body: payload,
       });
       setManualIdentifier('');
       setEntryFeedback({
@@ -319,13 +400,28 @@ export function EventAttendancePage() {
       });
       reload();
     } catch (err) {
-      setEntryFeedback({
-        outcome: 'error',
-        message:
-          err instanceof ApiClientError
-            ? err.detail
-            : 'No se encontró al participante con ese identificador.',
-      });
+      if (isLikelyNetworkError(err)) {
+        await queueAttendance({
+          kind: 'staff_manual',
+          endpoint,
+          payload,
+          maskedLabel: `Manual ${maskIdentifierForQueue(manualIdentifier)}`,
+        });
+        setManualIdentifier('');
+        setEntryFeedback({
+          outcome: 'registered',
+          message:
+            'Conexión perdida: registro manual guardado en cola local para sincronizarse al volver el internet.',
+        });
+      } else {
+        setEntryFeedback({
+          outcome: 'error',
+          message:
+            err instanceof ApiClientError
+              ? err.detail
+              : 'No se encontró al participante con ese identificador.',
+        });
+      }
     } finally {
       setSubmittingEntry(false);
     }
@@ -486,6 +582,48 @@ export function EventAttendancePage() {
                 <UserPlus className="h-4 w-4 mr-1.5" aria-hidden="true" />
                 Registro Manual
               </Button>
+            </div>
+
+            {/* Barra de estado de conexión y cola offline (IndexedDB) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 text-xs">
+              <div className="flex items-center gap-2">
+                {isOnline ? (
+                  <Wifi className="h-4 w-4 text-[var(--status-success-text)]" aria-hidden="true" />
+                ) : (
+                  <CloudOff
+                    className="h-4 w-4 text-[var(--status-warning-text)]"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="font-medium text-[var(--text-heading)]">
+                  {isOnline ? 'Conexión activa' : 'Modo sin conexión (Wi-Fi desconectado)'}
+                </span>
+                {pendingCount > 0 && (
+                  <Badge status="warning">{pendingCount} pendiente(s) por sincronizar</Badge>
+                )}
+                {pendingCount === 0 && lastSyncSummary && lastSyncSummary.syncedCount > 0 && (
+                  <Badge status="success">
+                    {lastSyncSummary.syncedCount} sincronizada(s) automáticamente
+                  </Badge>
+                )}
+              </div>
+
+              {pendingCount > 0 && isOnline && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={syncingOffline}
+                  onClick={() => void syncNow()}
+                  data-testid="offline-sync-now-btn"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${syncingOffline ? 'animate-spin' : ''}`}
+                    aria-hidden="true"
+                  />
+                  {syncingOffline ? 'Sincronizando…' : 'Sincronizar ahora'}
+                </Button>
+              )}
             </div>
 
             {entryFeedback && (

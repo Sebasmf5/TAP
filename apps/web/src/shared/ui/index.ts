@@ -11,4 +11,5 @@ export {
 } from './QrScannerModal.tsx';
 export { StatCard, type StatCardProps } from './StatCard.tsx';
 export { Table, type TableColumn, type TableProps } from './Table.tsx';
+export { TapHeroIllustration, TapPanelAccentIllustration } from './TapIllustrations.tsx';
 export { ThemeToggle } from './ThemeToggle.tsx';

@@ -1,4 +1,4 @@
-import type { NotificationDto } from '@tap/contracts';
+import type { FeatureKey, NotificationDto } from '@tap/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 import type {
   AuditLog,
@@ -67,6 +67,23 @@ export function createNotificationsModule(deps: {
     certificateId: string,
     deliveredAt: Date,
   ) => Promise<void>;
+  assertFeatureEnabled?: (organizationId: string, feature: FeatureKey) => Promise<void>;
+  listMarketingRecipients?: (organizationId: string) => Promise<{
+    consentedRecipients: Array<{
+      personId: string;
+      fullName: string;
+      email: string;
+      qrToken: string;
+    }>;
+    skippedWithoutConsentCount: number;
+  }>;
+  optOutMarketingByQrToken?: (
+    organizationId: string,
+    qrToken: string,
+    ipHash?: string | null,
+  ) => Promise<boolean>;
+  getOrganizationName?: (organizationId: string) => Promise<string | null>;
+  appUrl?: string;
 }): NotificationsModule {
   const repository =
     deps.repository ??
@@ -82,6 +99,11 @@ export function createNotificationsModule(deps: {
     clock: deps.clock,
     auditLog: deps.auditLog,
     onCertificateDelivered: deps.onCertificateDelivered,
+    assertFeatureEnabled: deps.assertFeatureEnabled,
+    listMarketingRecipients: deps.listMarketingRecipients,
+    optOutMarketingByQrToken: deps.optOutMarketingByQrToken,
+    getOrganizationName: deps.getOrganizationName,
+    appUrl: deps.appUrl,
   });
 
   // Suscripción a eventos de dominio de certificados

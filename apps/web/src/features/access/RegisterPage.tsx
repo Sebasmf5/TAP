@@ -1,5 +1,5 @@
 import type { OrganizationType, ServiceModulePlan } from '@tap/contracts';
-import { ArrowLeft, Check, Package, QrCode, Users } from 'lucide-react';
+import { ArrowLeft, Check, Megaphone, Package, QrCode, Users } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { ApiClientError } from '../../shared/api/http-client.ts';
@@ -25,8 +25,8 @@ const SERVICE_PLANS: ReadonlyArray<{
 }> = [
   {
     id: 'attendance_only',
-    title: 'Asistencia rápida y certificados',
-    badge: 'Eventos masivos',
+    title: 'Solo asistencia + certificados',
+    badge: 'Opción 1',
     summary:
       'Registra asistentes en segundos con QR de evento o cámara móvil en quiosco, y emite certificados PDF verificables.',
     includes: [
@@ -35,12 +35,12 @@ const SERVICE_PLANS: ReadonlyArray<{
       'Certificados PDF con QR de verificación',
       'Reportes y estadísticas descargables',
     ],
-    excludes: 'No incluye módulo de inventario ni préstamos.',
+    excludes: 'No incluye inventario ni envío de publicidad.',
   },
   {
     id: 'inventory_only',
-    title: 'Inventario QR y préstamos',
-    badge: 'Control de implementos',
+    title: 'Solo inventario y préstamos',
+    badge: 'Opción 2',
     summary:
       'Administra implementos con etiquetas QR, préstamos con firma digital desde el celular y alertas automáticas de mora.',
     includes: [
@@ -49,7 +49,21 @@ const SERVICE_PLANS: ReadonlyArray<{
       'Devolución rápida escaneando QR con celular',
       'Control de mora y reportes descargables',
     ],
-    excludes: 'No incluye módulo de eventos ni asistencia.',
+    excludes: 'No incluye eventos, certificados ni publicidad.',
+  },
+  {
+    id: 'certificates_marketing',
+    title: 'Certificados + envío de publicidad',
+    badge: 'Opción 3',
+    summary:
+      'Emite y envía certificados verificables y promociona nuevos eventos a quienes autorizaron publicidad (Ley 2300).',
+    includes: [
+      'Eventos, asistencia y emisión de certificados',
+      'Casilla opcional de publicidad (Ley 2300)',
+      'Campañas por correo para nuevos eventos',
+      'Gestión de consentimientos y bajas',
+    ],
+    excludes: 'No incluye módulo de inventario ni préstamos.',
   },
 ];
 
@@ -140,23 +154,29 @@ export function RegisterPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl my-6 sm:my-10">
+      <main className="mx-auto w-full max-w-5xl my-6 sm:my-10">
         <Card padding="lg">
           <div className="mb-6">
             <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1">
-              Alta de entidad · Servicio exclusivo
+              Panel de suscripción · Servicio exclusivo
             </p>
             <h1 className="text-2xl sm:text-3xl font-light text-[var(--text-heading)] tracking-tight">
               Registra tu entidad y adquiere un servicio
             </h1>
             <p className="mt-2 text-sm text-[var(--text-body)]">
-              Cada entidad opera con un único servicio especializado:{' '}
-              <strong className="font-medium text-[var(--text-heading)]">asistencia rápida</strong>{' '}
-              o{' '}
+              Elige una de las tres opciones disponibles para tu entidad:{' '}
+              <strong className="font-medium text-[var(--text-heading)]">
+                asistencia + certificados
+              </strong>
+              ,{' '}
               <strong className="font-medium text-[var(--text-heading)]">
                 inventario y préstamos
+              </strong>{' '}
+              o{' '}
+              <strong className="font-medium text-[var(--text-heading)]">
+                certificados + envío de publicidad
               </strong>
-              , no ambos.
+              .
             </p>
           </div>
 
@@ -180,11 +200,16 @@ export function RegisterPage() {
               <div
                 role="radiogroup"
                 aria-label="Servicio a adquirir"
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
                 {SERVICE_PLANS.map((plan) => {
                   const selected = servicePlan === plan.id;
-                  const Icon = plan.id === 'attendance_only' ? Users : Package;
+                  const Icon =
+                    plan.id === 'attendance_only'
+                      ? Users
+                      : plan.id === 'inventory_only'
+                        ? Package
+                        : Megaphone;
                   return (
                     <button
                       key={plan.id}

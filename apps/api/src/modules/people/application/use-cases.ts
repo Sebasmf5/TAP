@@ -389,6 +389,7 @@ export class PeopleService {
     consentVersion: string;
     channel: ConsentChannel;
     ipHash?: string | null;
+    marketingOptIn?: boolean;
   }): Promise<Person> {
     validateMinorGuardian({
       isMinor: params.isMinor,
@@ -438,6 +439,90 @@ export class PeopleService {
       ipHash: params.ipHash ?? null,
     });
 
+    if (params.marketingOptIn) {
+      await this.recordConsentInternal({
+        organizationId: params.organizationId,
+        personId: person.id,
+        version: params.consentVersion,
+        channel: 'marketing_opt_in',
+        ipHash: params.ipHash ?? null,
+      });
+    }
+
     return person;
+  }
+
+  /**
+   * Lista destinatarios con correo electrónico y consentimiento publicitario vigente (Ley 2300 de 2023),
+   * excluyendo a menores de edad (Ley 1581 Art. 7) y a quienes no aceptaron o revocaron su autorización.
+   */
+  async listMarketingRecipientsInternal(organizationId: string): Promise<{
+    consentedRecipients: Array<{
+      personId: string;
+      fullName: string;
+      email: string;
+      qrToken: string;
+    }>;
+    skippedWithoutConsentCount: number;
+  }> {
+    const [people, consents] = await Promise.all([
+      this.repository.searchByOrganization(organizationId),
+      this.repository.listConsentsByOrganization(organizationId),
+    ]);
+
+    const latestMarketingByPerson = new Map<string, ConsentChannel>();
+    for (const consent of consents) {
+      if (consent.channel !== 'marketing_opt_in' && consent.channel !== 'marketing_opt_out') {
+        continue;
+      }
+      if (!latestMarketingByPerson.has(consent.personId)) {
+        latestMarketingByPerson.set(consent.personId, consent.channel);
+      }
+    }
+
+    const consentedRecipients: Array<{
+      personId: string;
+      fullName: string;
+      email: string;
+      qrToken: string;
+    }> = [];
+    let skippedWithoutConsentCount = 0;
+
+    for (const person of people) {
+      if (!person.email) continue;
+      if (person.isMinor) {
+        skippedWithoutConsentCount += 1;
+        continue;
+      }
+      if (latestMarketingByPerson.get(person.id) === 'marketing_opt_in') {
+        consentedRecipients.push({
+          personId: person.id,
+          fullName: person.fullName,
+          email: person.email,
+          qrToken: person.qrToken,
+        });
+      } else {
+        skippedWithoutConsentCount += 1;
+      }
+    }
+
+    return { consentedRecipients, skippedWithoutConsentCount };
+  }
+
+  async optOutMarketingByQrTokenInternal(
+    organizationId: string,
+    qrToken: string,
+    ipHash?: string | null,
+  ): Promise<boolean> {
+    const person = await this.repository.findByQrToken(organizationId, qrToken.trim());
+    if (!person) return false;
+    await this.recordConsentInternal({
+      organizationId,
+      personId: person.id,
+      version: 'law-2300-opt-out',
+      channel: 'marketing_opt_out',
+      ipHash: ipHash ?? null,
+    });
+    return true;
   }
 }

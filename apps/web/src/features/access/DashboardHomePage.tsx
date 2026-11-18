@@ -3,7 +3,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { apiRequest } from '../../shared/api/http-client.ts';
 import { ROLE_LABELS, useAuth } from '../../shared/auth/auth-context.tsx';
-import { Badge, Button, Card, StatCard } from '../../shared/ui/index.ts';
+import {
+  Badge,
+  Button,
+  Card,
+  StatCard,
+  TapPanelAccentIllustration,
+} from '../../shared/ui/index.ts';
 
 const FEATURE_LABELS: Record<string, string> = {
   attendance: 'Asistencia rápida con QR',
@@ -13,6 +19,7 @@ const FEATURE_LABELS: Record<string, string> = {
   reports: 'Reportes y estadísticas',
   kioskMode: 'Modo kiosco con carné QR',
   googleSso: 'Acceso institucional Google',
+  marketing: 'Campañas publicitarias (Ley 2300)',
 };
 
 export function DashboardHomePage() {
@@ -84,26 +91,29 @@ export function DashboardHomePage() {
           </p>
         </div>
 
-        {/* Única acción cromática principal de la vista */}
-        {user.role === 'platform_admin' ? (
-          <Link to="/app/platform/organizations" className="w-full sm:w-auto">
-            <Button variant="primary" className="w-full sm:w-auto">
-              Administrar entidades
-            </Button>
-          </Link>
-        ) : organization?.features.attendance && !organization?.features.inventory ? (
-          <Link to="/app/events" className="w-full sm:w-auto">
-            <Button variant="primary" className="w-full sm:w-auto">
-              Gestionar eventos y asistencia
-            </Button>
-          </Link>
-        ) : (
-          <Link to="/app/loans" className="w-full sm:w-auto">
-            <Button variant="primary" className="w-full sm:w-auto">
-              Gestionar préstamos e inventario
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-4">
+          <TapPanelAccentIllustration className="hidden md:block w-36 h-auto shrink-0" />
+          {/* Única acción cromática principal de la vista */}
+          {user.role === 'platform_admin' ? (
+            <Link to="/app/platform/organizations" className="w-full sm:w-auto">
+              <Button variant="primary" className="w-full sm:w-auto">
+                Administrar entidades
+              </Button>
+            </Link>
+          ) : organization?.features.attendance && !organization?.features.inventory ? (
+            <Link to="/app/events" className="w-full sm:w-auto">
+              <Button variant="primary" className="w-full sm:w-auto">
+                Gestionar eventos y asistencia
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/app/loans" className="w-full sm:w-auto">
+              <Button variant="primary" className="w-full sm:w-auto">
+                Gestionar préstamos e inventario
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tarjetas de resumen con cifras tabulares */}

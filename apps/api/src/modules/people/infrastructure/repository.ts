@@ -193,6 +193,15 @@ export class DrizzlePeopleRepository implements PeopleRepository {
       .limit(1);
     return rows[0] ? mapConsentRow(rows[0]) : null;
   }
+
+  async listConsentsByOrganization(organizationId: string): Promise<DataConsent[]> {
+    const rows = await this.db
+      .select()
+      .from(consentsTable)
+      .where(eq(consentsTable.organizationId, organizationId))
+      .orderBy(desc(consentsTable.acceptedAt));
+    return rows.map(mapConsentRow);
+  }
 }
 
 export class InMemoryPeopleRepository implements PeopleRepository {
@@ -272,5 +281,11 @@ export class InMemoryPeopleRepository implements PeopleRepository {
       .filter((c) => c.organizationId === organizationId && c.personId === personId)
       .sort((a, b) => b.acceptedAt.getTime() - a.acceptedAt.getTime());
     return matches[0] ?? null;
+  }
+
+  async listConsentsByOrganization(organizationId: string): Promise<DataConsent[]> {
+    return this.consents
+      .filter((c) => c.organizationId === organizationId)
+      .sort((a, b) => b.acceptedAt.getTime() - a.acceptedAt.getTime());
   }
 }

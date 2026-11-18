@@ -22,6 +22,7 @@ interface NavItem {
 function resolveServiceLabel(org: OrganizationDto): string {
   const hasAttendance = org.features.attendance;
   const hasInventory = org.features.inventory;
+  if (org.features.marketing) return 'Certificados + Publicidad';
   if (hasAttendance && !hasInventory) return 'Asistencia rápida';
   if (hasInventory && !hasAttendance) return 'Inventarios QR';
   return org.plan === 'institutional'

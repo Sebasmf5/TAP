@@ -16,11 +16,14 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   reports: true,
   kioskMode: true,
   googleSso: false,
+  marketing: false,
 };
 
 /**
- * Construye las banderas de servicio garantizando exclusividad mutua:
- * una entidad adquiere asistencia rápida o inventarios, nunca ambos.
+ * Construye las banderas de servicio garantizando planes excluyentes:
+ * 1) Asistencia + certificados
+ * 2) Inventarios y préstamos
+ * 3) Certificados + envío de publicidad (con consentimiento Ley 2300)
  */
 export function buildFeatureFlagsForServicePlan(servicePlan: ServiceModulePlan): FeatureFlags {
   if (servicePlan === 'attendance_only') {
@@ -32,6 +35,19 @@ export function buildFeatureFlagsForServicePlan(servicePlan: ServiceModulePlan):
       reports: true,
       kioskMode: true,
       googleSso: false,
+      marketing: false,
+    };
+  }
+  if (servicePlan === 'certificates_marketing') {
+    return {
+      attendance: true,
+      certificates: true,
+      inventory: false,
+      loans: false,
+      reports: true,
+      kioskMode: true,
+      googleSso: false,
+      marketing: true,
     };
   }
   return {
@@ -42,6 +58,7 @@ export function buildFeatureFlagsForServicePlan(servicePlan: ServiceModulePlan):
     reports: true,
     kioskMode: false,
     googleSso: false,
+    marketing: false,
   };
 }
 
@@ -86,6 +103,7 @@ export function mergeFeatureFlags(
     reports: overrides?.reports ?? base.reports,
     kioskMode: overrides?.kioskMode ?? base.kioskMode,
     googleSso: overrides?.googleSso ?? base.googleSso,
+    marketing: overrides?.marketing ?? base.marketing,
   };
 }
 

@@ -1,12 +1,15 @@
 import type {
   ListNotificationsResponse,
+  MarketingCampaignResponse,
   NotificationDto,
   NotificationStatus,
+  OrganizationDto,
 } from '@tap/contracts';
-import { RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Megaphone, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useOutletContext } from 'react-router';
 import { ApiClientError, apiRequest } from '../../shared/api/http-client.ts';
-import { Badge, Button, Card, StatCard } from '../../shared/ui/index.ts';
+import { Badge, Button, Card, Input, StatCard } from '../../shared/ui/index.ts';
 
 function formatBogotaDateTime(iso: string): string {
   try {
@@ -21,12 +24,22 @@ function formatBogotaDateTime(iso: string): string {
 }
 
 export function NotificationsPage() {
+  const outletContext = useOutletContext<{ organization: OrganizationDto | null } | undefined>();
+  const canSendMarketing = Boolean(outletContext?.organization?.features.marketing);
+
   const [data, setData] = useState<ListNotificationsResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState<NotificationStatus | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Campañas publicitarias (Opción 3: Certificados + Publicidad, Ley 2300 de 2023)
+  const [campaignSubject, setCampaignSubject] = useState('');
+  const [campaignMessage, setCampaignMessage] = useState('');
+  const [campaignCtaUrl, setCampaignCtaUrl] = useState('');
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+  const [campaignResult, setCampaignResult] = useState<MarketingCampaignResponse | null>(null);
 
   const reload = useCallback(() => {
     setReloadKey((k) => k + 1);
@@ -79,6 +92,37 @@ export function NotificationsPage() {
     }
   };
 
+  const handleSendCampaign = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setCampaignResult(null);
+    setSendingCampaign(true);
+    try {
+      const res = await apiRequest<MarketingCampaignResponse>('/notifications/marketing-campaign', {
+        method: 'POST',
+        body: {
+          subject: campaignSubject.trim(),
+          message: campaignMessage.trim(),
+          ctaLabel: campaignCtaUrl.trim() ? 'Ver nuevo evento' : undefined,
+          ctaUrl: campaignCtaUrl.trim() || undefined,
+        },
+      });
+      setCampaignResult(res);
+      setCampaignSubject('');
+      setCampaignMessage('');
+      setCampaignCtaUrl('');
+      reload();
+    } catch (err) {
+      setErrorMessage(
+        err instanceof ApiClientError
+          ? err.detail
+          : 'No fue posible enviar la campaña publicitaria.',
+      );
+    } finally {
+      setSendingCampaign(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -119,6 +163,76 @@ export function NotificationsPage() {
         >
           {errorMessage}
         </div>
+      )}
+
+      {canSendMarketing && (
+        <Card
+          title="Campañas publicitarias de nuevos eventos"
+          description="Envía anuncios por correo únicamente a participantes que marcaron el consentimiento publicitario opcional (Ley 1581 y Ley 2300 de 2023)."
+        >
+          {campaignResult && (
+            <div className="mb-4 rounded-[var(--radius-control)] border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-4 py-3 text-xs text-[var(--status-success-text)]">
+              Campaña encolada para <strong>{campaignResult.recipientsCount}</strong>{' '}
+              destinatario(s) con consentimiento vigente. Se omitieron{' '}
+              <strong>{campaignResult.skippedWithoutConsentCount}</strong> registro(s) sin
+              autorización publicitaria.
+            </div>
+          )}
+
+          <form onSubmit={(e) => void handleSendCampaign(e)} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Asunto del correo"
+                value={campaignSubject}
+                onChange={(e) => setCampaignSubject(e.target.value)}
+                placeholder="Ej: ¡Inscríbete a la Copa Deportiva 2026!"
+                minLength={4}
+                required
+              />
+              <Input
+                label="Enlace del evento (opcional)"
+                type="url"
+                value={campaignCtaUrl}
+                onChange={(e) => setCampaignCtaUrl(e.target.value)}
+                placeholder="https://tap.sebasmf.dev/c/NUEVO1"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="campaign-message-input"
+                className="block text-sm font-normal text-[var(--text-heading)]"
+              >
+                Mensaje promocional
+              </label>
+              <textarea
+                id="campaign-message-input"
+                rows={4}
+                required
+                minLength={10}
+                value={campaignMessage}
+                onChange={(e) => setCampaignMessage(e.target.value)}
+                placeholder="Cuéntales a tus asistentes sobre el próximo evento, fecha, lugar y cómo registrarse."
+                className="w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="text-xs text-[var(--text-muted)]">
+                Incluye automáticamente pie legal con opción de baja (Ley 2300 de 2023).
+              </span>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={sendingCampaign || !campaignSubject.trim() || !campaignMessage.trim()}
+                data-testid="send-marketing-campaign-btn"
+              >
+                <Megaphone className="h-4 w-4" aria-hidden="true" />
+                {sendingCampaign ? 'Enviando campaña…' : 'Enviar campaña publicitaria'}
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
 
       {data && (

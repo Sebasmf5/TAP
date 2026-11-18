@@ -258,6 +258,17 @@ export function createAppContainer(params: {
         );
       }
     },
+    assertFeatureEnabled: (organizationId, feature) =>
+      organizationsModule.requireFeature(organizationId, feature),
+    listMarketingRecipients: (organizationId) =>
+      peopleModule.listMarketingRecipients(organizationId),
+    optOutMarketingByQrToken: (organizationId, qrToken, ipHash) =>
+      peopleModule.optOutMarketingByQrToken(organizationId, qrToken, ipHash),
+    getOrganizationName: async (organizationId) => {
+      const org = await organizationsModule.getOrganizationById(organizationId);
+      return org?.name ?? null;
+    },
+    appUrl: params.config.APP_URL,
   });
 
   const certificatesModule = createCertificatesModule({

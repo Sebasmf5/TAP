@@ -50,7 +50,22 @@ export interface PeopleModule {
     consentVersion: string;
     channel: ConsentChannel;
     ipHash?: string | null;
+    marketingOptIn?: boolean;
   }): Promise<Person>;
+  listMarketingRecipients(organizationId: string): Promise<{
+    consentedRecipients: Array<{
+      personId: string;
+      fullName: string;
+      email: string;
+      qrToken: string;
+    }>;
+    skippedWithoutConsentCount: number;
+  }>;
+  optOutMarketingByQrToken(
+    organizationId: string,
+    qrToken: string,
+    ipHash?: string | null,
+  ): Promise<boolean>;
   createRoutes(authenticate: AuthenticateRequestFn): ReturnType<typeof createPeopleRoutes>;
 }
 
@@ -92,6 +107,12 @@ export function createPeopleModule(params: {
     },
     registerPublicWalkInPerson(walkInParams) {
       return service.registerPublicWalkInPersonInternal(walkInParams);
+    },
+    listMarketingRecipients(organizationId: string) {
+      return service.listMarketingRecipientsInternal(organizationId);
+    },
+    optOutMarketingByQrToken(organizationId: string, qrToken: string, ipHash?: string | null) {
+      return service.optOutMarketingByQrTokenInternal(organizationId, qrToken, ipHash);
     },
     createRoutes(authenticate: AuthenticateRequestFn) {
       return createPeopleRoutes({ service, authenticate });

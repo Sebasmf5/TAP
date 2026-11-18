@@ -1,5 +1,7 @@
 import {
   ListNotificationsResponseSchema,
+  MarketingCampaignRequestSchema,
+  MarketingCampaignResponseSchema,
   NotificationDtoSchema,
   NotificationStatusSchema,
 } from '@tap/contracts';
@@ -53,6 +55,50 @@ export function createNotificationsRoutes(deps: {
       async (req) => {
         const actor = await deps.authenticate(req);
         return deps.service.retryNotification(actor, req.params.id);
+      },
+    );
+
+    typed.post(
+      '/notifications/marketing-campaign',
+      {
+        schema: {
+          tags: ['notifications'],
+          summary:
+            'Envía una campaña publicitaria de la entidad solo a participantes con consentimiento vigente (Ley 2300)',
+          body: MarketingCampaignRequestSchema,
+          response: {
+            200: MarketingCampaignResponseSchema,
+          },
+        },
+      },
+      async (req) => {
+        const actor = await deps.authenticate(req);
+        return deps.service.sendMarketingCampaign(actor, req.body);
+      },
+    );
+
+    typed.get(
+      '/public/marketing-unsubscribe',
+      {
+        schema: {
+          tags: ['notifications'],
+          summary: 'Cancela la suscripción publicitaria en 1 clic conforme a la Ley 2300 de 2023',
+          querystring: z.object({
+            org: z.uuid(),
+            token: z.string().trim().min(6).max(64),
+          }),
+        },
+      },
+      async (req, reply) => {
+        await deps.service.unsubscribeMarketingRecipient({
+          organizationId: req.query.org,
+          qrToken: req.query.token,
+        });
+        return reply
+          .type('text/html; charset=utf-8')
+          .send(
+            '<!doctype html><html lang="es-CO"><body style="font-family:Inter,sans-serif;padding:32px;color:#061b31;"><h1>Suscripción publicitaria cancelada</h1><p>No recibirás más mensajes comerciales de esta entidad (Ley 2300 de 2023).</p></body></html>',
+          );
       },
     );
   };

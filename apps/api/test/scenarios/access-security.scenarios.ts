@@ -326,7 +326,9 @@ export function accessSecurityScenarios(mode: HarnessMode): void {
     });
 
     it('permite registrar entidad adquiriendo asistencia rápida o inventarios de forma excluyente', async () => {
-      const { container } = await createHarness(mode);
+      const { container, clock } = await createHarness(mode, {
+        nowIso: '2026-11-10T15:00:00Z', // Martes 10:00 a. m. America/Bogota (dentro de horario Ley 2300)
+      });
       const server = await buildServer(container);
 
       const passAttendance = `Segura#${randomBytes(6).toString('hex')}`;
@@ -390,6 +392,78 @@ export function accessSecurityScenarios(mode: HarnessMode): void {
       expect(invOrgRes.json().features.loans).toBe(true);
       expect(invOrgRes.json().features.attendance).toBe(false);
       expect(invOrgRes.json().features.certificates).toBe(false);
+      expect(invOrgRes.json().features.marketing).toBe(false);
+
+      // La opción 1 (attendance_only) no puede enviar campañas publicitarias (FeatureGate)
+      const blockedMarketingRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/notifications/marketing-campaign',
+        headers: { authorization: `Bearer ${attToken}` },
+        payload: {
+          subject: 'Nuevo torneo universitario',
+          message: 'Inscríbete al nuevo torneo abierto este mes.',
+        },
+      });
+      expect(blockedMarketingRes.statusCode).toBe(403);
+
+      // Opción 3: Certificados + Envío de publicidad
+      const passMarketing = `Agencia#${randomBytes(6).toString('hex')}`;
+      const mktEmail = `sofia.${randomBytes(3).toString('hex')}@agencia.tap`;
+      const regMarketingRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: {
+          organizationName: 'Agencia Eventos Pro',
+          organizationType: 'empresa',
+          servicePlan: 'certificates_marketing',
+          adminFullName: 'Sofía Castro',
+          adminEmail: mktEmail,
+          adminPassword: passMarketing,
+        },
+      });
+      expect(regMarketingRes.statusCode).toBe(201);
+      const mktToken: string = regMarketingRes.json().accessToken;
+
+      const mktOrgRes = await server.inject({
+        method: 'GET',
+        url: '/api/v1/organization',
+        headers: { authorization: `Bearer ${mktToken}` },
+      });
+      expect(mktOrgRes.statusCode).toBe(200);
+      expect(mktOrgRes.json().features.certificates).toBe(true);
+      expect(mktOrgRes.json().features.marketing).toBe(true);
+      expect(mktOrgRes.json().features.inventory).toBe(false);
+
+      const campaignRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/notifications/marketing-campaign',
+        headers: { authorization: `Bearer ${mktToken}` },
+        payload: {
+          subject: 'Nueva convocatoria de talleres 2026',
+          message: 'Ya están abiertas las inscripciones para el nuevo ciclo de talleres.',
+        },
+      });
+      expect(campaignRes.statusCode).toBe(200);
+      expect(campaignRes.json().recipientsCount).toBe(0);
+
+      // Fuera de horario Ley 2300 (domingo) debe rechazarse con 400 VALIDATION_ERROR
+      clock.advanceMs(5 * 86_400_000);
+      const sundayLoginRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: { email: mktEmail, password: passMarketing },
+      });
+      const sundayToken: string = sundayLoginRes.json().accessToken;
+      const sundayCampaignRes = await server.inject({
+        method: 'POST',
+        url: '/api/v1/notifications/marketing-campaign',
+        headers: { authorization: `Bearer ${sundayToken}` },
+        payload: {
+          subject: 'Campaña en domingo no permitida',
+          message: 'Este envío debe ser bloqueado por la Ley 2300 de 2023.',
+        },
+      });
+      expect(sundayCampaignRes.statusCode).toBe(400);
 
       await server.close();
     });

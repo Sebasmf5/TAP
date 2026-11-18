@@ -19,6 +19,7 @@ export const FeatureFlagsSchema = z.object({
   reports: z.boolean().default(true),
   kioskMode: z.boolean().default(true),
   googleSso: z.boolean().default(false),
+  marketing: z.boolean().default(false),
 });
 export type FeatureFlags = z.infer<typeof FeatureFlagsSchema>;
 export type FeatureKey = keyof FeatureFlags;

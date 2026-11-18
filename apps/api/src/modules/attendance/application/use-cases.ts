@@ -68,6 +68,7 @@ export interface AttendanceDependencies {
       consentVersion: string;
       channel: 'public_checkin';
       ipHash?: string | null;
+      marketingOptIn?: boolean;
     }) => Promise<Person>;
   };
 }
@@ -381,6 +382,7 @@ export class AttendanceService {
         consentVersion: organization.dataConsentVersion,
         channel: 'public_checkin',
         ipHash: params.ipHash,
+        marketingOptIn: params.input.walkInRegistration.marketingOptIn ?? false,
       });
 
       person = {

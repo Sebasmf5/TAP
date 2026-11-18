@@ -8,6 +8,7 @@ export const NotificationTemplateKeySchema = z.enum([
   'loan_delivered',
   'loan_overdue',
   'loan_returned',
+  'marketing_campaign',
 ]);
 export type NotificationTemplateKey = z.infer<typeof NotificationTemplateKeySchema>;
 
@@ -40,3 +41,18 @@ export const ListNotificationsResponseSchema = z.object({
   items: z.array(NotificationDtoSchema),
 });
 export type ListNotificationsResponse = z.infer<typeof ListNotificationsResponseSchema>;
+
+export const MarketingCampaignRequestSchema = z.object({
+  subject: z.string().trim().min(4, 'Escribe un asunto para la campaña.').max(160),
+  message: z.string().trim().min(10, 'Escribe el mensaje promocional.').max(4000),
+  ctaLabel: z.string().trim().max(60).optional(),
+  ctaUrl: z.url('Ingresa una URL válida para el botón de acción.').optional(),
+});
+export type MarketingCampaignRequest = z.infer<typeof MarketingCampaignRequestSchema>;
+
+export const MarketingCampaignResponseSchema = z.object({
+  recipientsCount: z.number().int().min(0),
+  skippedWithoutConsentCount: z.number().int().min(0),
+  sentAt: z.string(),
+});
+export type MarketingCampaignResponse = z.infer<typeof MarketingCampaignResponseSchema>;

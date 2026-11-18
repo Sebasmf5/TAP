@@ -105,7 +105,52 @@ export const DEFAULT_NOTIFICATION_TEMPLATES: Record<
     textTemplate:
       'Hola {{holder_name}}, confirmamos la devolución de los implementos prestados en {{organization_name}}. ¡Gracias!',
   },
+  marketing_campaign: {
+    subjectTemplate: '{{campaign_subject}}',
+    htmlTemplate: `<!doctype html>
+<html lang="es-CO">
+  <body style="font-family: Inter, -apple-system, sans-serif; color: #273951; background: #ffffff; padding: 24px;">
+    <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e5edf5; border-radius: 6px; padding: 24px;">
+      <p style="font-size: 12px; color: #64748d; margin: 0 0 8px;">{{organization_name}}</p>
+      <h1 style="font-size: 20px; font-weight: 500; color: #061b31; margin: 0 0 12px;">{{campaign_subject}}</h1>
+      <p style="font-size: 14px; line-height: 1.6; white-space: pre-line;">Hola {{holder_name}},
+
+{{campaign_message}}</p>
+      <p style="margin-top: 18px; font-size: 13px;">{{cta_block}}</p>
+      <hr style="border: none; border-top: 1px solid #e5edf5; margin: 24px 0 12px;" />
+      <p style="font-size: 11px; color: #64748d; margin: 0;">
+        Recibes este mensaje porque autorizaste recibir comunicaciones comerciales de {{organization_name}} (Ley 1581 de 2012 y Ley 2300 de 2023). Si no deseas recibir más publicidad, puedes
+        <a href="{{unsubscribe_url}}" style="color: #533afd;">darte de baja aquí en 1 clic</a>.
+      </p>
+    </div>
+  </body>
+</html>`,
+    textTemplate:
+      '{{organization_name}} — Hola {{holder_name}}, {{campaign_message}} {{cta_url}} — Para dejar de recibir publicidad (Ley 2300 de 2023), abre: {{unsubscribe_url}}',
+  },
 };
+
+/**
+ * Valida la franja horaria permitida en Colombia por la Ley 2300 de 2023 (Art. 3):
+ * lunes a viernes de 7:00 a. m. a 7:00 p. m., sábados de 8:00 a. m. a 3:00 p. m.
+ * Prohibido los domingos.
+ */
+export function isWithinLaw2300Schedule(date: Date): boolean {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(date);
+
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const hourStr = parts.find((p) => p.type === 'hour')?.value ?? '0';
+  const hour = Number.parseInt(hourStr, 10) % 24;
+
+  if (weekday === 'Sun') return false;
+  if (weekday === 'Sat') return hour >= 8 && hour < 15;
+  return hour >= 7 && hour < 19;
+}
 
 export function interpolateNotificationTemplate(
   raw: string,
