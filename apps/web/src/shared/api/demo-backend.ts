@@ -1714,6 +1714,79 @@ export async function handleDemoRequest<T>(
     } as unknown as T;
   }
 
+  if (pathname === '/notifications/test-email' && upperMethod === 'POST') {
+    const recipientEmail = String(payload['recipientEmail'] ?? 'admin@demo.tap')
+      .trim()
+      .toLowerCase();
+    const nowIso = new Date().toISOString();
+    const testNotification: NotificationDto = {
+      id: nextDemoId(),
+      organizationId: ORG_ID,
+      channel: 'email',
+      template: 'test_email',
+      recipient: recipientEmail,
+      subject: 'Prueba de entrega de correo — Bienestar Universitario UCEVA (Demo) (Tap)',
+      status: 'sent',
+      attempts: 1,
+      lastError: null,
+      relatedEntityType: 'smtp_check',
+      relatedEntityId: null,
+      deduplicationKey: `demo-test-email-${Date.now()}`,
+      sentAt: nowIso,
+      createdAt: nowIso,
+    };
+    demoNotifications = [testNotification, ...demoNotifications];
+    return {
+      ok: true,
+      channel: 'email',
+      recipient: recipientEmail,
+      verifiedConnection: true,
+      sentAt: nowIso,
+      latencyMs: 42,
+      message: `Correo de prueba enviado correctamente a ${recipientEmail} (modo demo).`,
+      errorDetail: null,
+    } as unknown as T;
+  }
+
+  if (pathname.startsWith('/public/preregister/') && upperMethod === 'POST') {
+    const code = decodeURIComponent(pathname.replace('/public/preregister/', '')).trim();
+    const event =
+      demoEvents.find((e) => e.publicCode.toUpperCase() === code.toUpperCase()) ?? demoEvents[0];
+    const fullName = String(payload['fullName'] ?? 'Participante').trim();
+    const email = String(payload['email'] ?? 'participante@demo.tap')
+      .trim()
+      .toLowerCase();
+    const [first = 'Participante', last = ''] = fullName.split(/\s+/);
+    const maskedName = last ? `${first} ${last[0]}.` : first;
+    const [localPart = '', domainPart = 'demo.tap'] = email.split('@');
+    const maskedEmail = `${localPart.slice(0, 2)}•••@${domainPart}`;
+    const nowIso = new Date().toISOString();
+    const preregNotification: NotificationDto = {
+      id: nextDemoId(),
+      organizationId: ORG_ID,
+      channel: 'email',
+      template: 'event_preregistration',
+      recipient: email,
+      subject: `Preregistro confirmado: ${event?.name ?? 'Evento Tap'}`,
+      status: 'sent',
+      attempts: 1,
+      lastError: null,
+      relatedEntityType: 'event',
+      relatedEntityId: event?.id ?? null,
+      deduplicationKey: `demo-prereg-${Date.now()}-${email}`,
+      sentAt: nowIso,
+      createdAt: nowIso,
+    };
+    demoNotifications = [preregNotification, ...demoNotifications];
+    return {
+      preregistered: true,
+      maskedName,
+      maskedEmail,
+      eventName: event?.name ?? 'Evento Tap',
+      message: `Preregistro confirmado para ${event?.name ?? 'Evento Tap'}. Enviamos la confirmación y tu código personal de ingreso a ${maskedEmail}.`,
+    } as unknown as T;
+  }
+
   // 10. Reportes (/reports/dashboard)
   if (pathname === '/reports/dashboard' && upperMethod === 'GET') {
     syncModelCounts();

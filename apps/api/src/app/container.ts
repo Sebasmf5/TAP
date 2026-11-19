@@ -198,6 +198,9 @@ export function createAppContainer(params: {
     },
   });
 
+  // Referencia diferida para notificaciones de preregistro
+  const notificationsModuleHolder: { current?: NotificationsModule } = {};
+
   const attendanceModule = createAttendanceModule({
     db: useInMemory ? undefined : database.db,
     repository: params.attendanceRepository,
@@ -221,6 +224,38 @@ export function createAppContainer(params: {
         peopleModule.findByQrToken(organizationId, qrToken),
       registerPublicWalkInPerson: (walkInParams) =>
         peopleModule.registerPublicWalkInPerson(walkInParams),
+    },
+    enqueuePreregistrationNotification: async ({
+      organizationId,
+      event,
+      organizationName,
+      person,
+      recipientEmail,
+    }) => {
+      if (!notificationsModuleHolder.current) return;
+      const eventDate = new Intl.DateTimeFormat('es-CO', {
+        timeZone: 'America/Bogota',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(event.startsAt);
+      const checkinUrl = `${params.config.APP_URL}/c/${encodeURIComponent(event.publicCode)}`;
+      await notificationsModuleHolder.current.enqueueNotification({
+        organizationId,
+        template: 'event_preregistration',
+        recipient: recipientEmail,
+        variables: {
+          holder_name: person.fullName,
+          event_name: event.name,
+          event_date: eventDate,
+          event_location: event.siteId ? 'Sede institucional' : 'Por confirmar',
+          organization_name: organizationName,
+          qr_token: person.qrToken,
+          checkin_url: checkinUrl,
+        },
+        relatedEntityType: 'event',
+        relatedEntityId: event.id,
+        deduplicationKey: `preregistration:${event.id}:${person.id}`,
+      });
     },
   });
 
@@ -270,6 +305,8 @@ export function createAppContainer(params: {
     },
     appUrl: params.config.APP_URL,
   });
+
+  notificationsModuleHolder.current = notificationsModule;
 
   const certificatesModule = createCertificatesModule({
     db: useInMemory ? undefined : database.db,

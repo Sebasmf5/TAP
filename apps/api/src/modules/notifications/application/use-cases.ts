@@ -6,6 +6,8 @@ import type {
   NotificationDto,
   NotificationStatus,
   NotificationTemplateKey,
+  SendTestEmailRequest,
+  SendTestEmailResponse,
 } from '@tap/contracts';
 import {
   ForbiddenError,
@@ -400,5 +402,110 @@ export class NotificationsService {
   }): Promise<boolean> {
     if (!this.optOutMarketingByQrToken) return false;
     return this.optOutMarketingByQrToken(params.organizationId, params.qrToken, params.ip ?? null);
+  }
+
+  /**
+   * Comprueba la conexión SMTP y envía un correo de prueba inmediato para validar
+   * credenciales y entregabilidad antes de eventos o préstamos.
+   */
+  public async sendTestEmail(
+    actor: StaffActor,
+    input: SendTestEmailRequest,
+  ): Promise<SendTestEmailResponse> {
+    const orgId = assertOperatorOrAdmin(actor);
+    const orgName = (await this.getOrganizationName?.(orgId)) ?? 'Tap';
+    const now = this.clock.now();
+    const startedAt = Date.now();
+    const checkedAt = new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    }).format(now);
+
+    const templateDef = DEFAULT_NOTIFICATION_TEMPLATES.test_email;
+    const variables = {
+      organization_name: orgName,
+      checked_at: checkedAt,
+    };
+    const subject = interpolateNotificationTemplate(templateDef.subjectTemplate, variables);
+    const html = interpolateNotificationTemplate(templateDef.htmlTemplate, variables);
+    const text = interpolateNotificationTemplate(templateDef.textTemplate, variables);
+
+    const notificationId = this.idGenerator.nextId();
+    const deduplicationKey = `test_email:${notificationId}`;
+
+    let verifiedConnection = false;
+    let errorDetail: string | null = null;
+    let ok = false;
+
+    try {
+      if (this.channel.verifyConnection) {
+        await this.channel.verifyConnection();
+      }
+      verifiedConnection = true;
+
+      await this.channel.send({
+        to: input.recipientEmail,
+        subject,
+        html,
+        text,
+        metadata: {
+          organizationId: orgId,
+          notificationId,
+          template: 'test_email',
+        },
+      });
+      ok = true;
+    } catch (err) {
+      errorDetail = err instanceof Error ? err.message : 'Error desconocido al conectar con SMTP.';
+    }
+
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+    const sentAt = ok ? this.clock.now() : null;
+
+    await this.repository.insertIfNotDuplicate({
+      id: notificationId,
+      organizationId: orgId,
+      channel: this.channel.channelType,
+      template: 'test_email',
+      recipient: input.recipientEmail,
+      subject,
+      payload: variables,
+      relatedEntityType: 'smtp_check',
+      relatedEntityId: null,
+      deduplicationKey,
+      createdAt: now,
+    });
+    if (ok && sentAt) {
+      await this.repository.markSent(orgId, notificationId, sentAt);
+    } else if (!ok && errorDetail) {
+      await this.repository.markFailed(orgId, notificationId, errorDetail);
+    }
+
+    await this.auditLog.record({
+      organizationId: orgId,
+      actorUserId: actor.userId,
+      action: ok ? 'notifications.test_email_sent' : 'notifications.test_email_failed',
+      targetType: 'notification',
+      targetId: notificationId,
+      metadata: {
+        channel: this.channel.channelType,
+        verifiedConnection,
+        latencyMs,
+      },
+    });
+
+    return {
+      ok,
+      channel: this.channel.channelType,
+      recipient: input.recipientEmail,
+      verifiedConnection,
+      sentAt: sentAt ? sentAt.toISOString() : null,
+      latencyMs,
+      message: ok
+        ? `Correo de prueba enviado correctamente a ${input.recipientEmail}.`
+        : 'No fue posible completar el envío de prueba. Revisa la configuración SMTP.',
+      errorDetail,
+    };
   }
 }

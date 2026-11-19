@@ -4,11 +4,13 @@ import type {
   NotificationDto,
   NotificationStatus,
   OrganizationDto,
+  SendTestEmailResponse,
 } from '@tap/contracts';
-import { Megaphone, RefreshCw } from 'lucide-react';
+import { CheckCircle2, MailCheck, Megaphone, RefreshCw, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useOutletContext } from 'react-router';
 import { ApiClientError, apiRequest } from '../../shared/api/http-client.ts';
+import { useAuth } from '../../shared/auth/auth-context.tsx';
 import { Badge, Button, Card, Input, StatCard } from '../../shared/ui/index.ts';
 
 function formatBogotaDateTime(iso: string): string {
@@ -24,8 +26,13 @@ function formatBogotaDateTime(iso: string): string {
 }
 
 export function NotificationsPage() {
+  const { user } = useAuth();
   const outletContext = useOutletContext<{ organization: OrganizationDto | null } | undefined>();
   const canSendMarketing = Boolean(outletContext?.organization?.features.marketing);
+
+  const [testEmailAddress, setTestEmailAddress] = useState(user?.email ?? '');
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<SendTestEmailResponse | null>(null);
 
   const [data, setData] = useState<ListNotificationsResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState<NotificationStatus | 'all'>('all');
@@ -89,6 +96,35 @@ export function NotificationsPage() {
       );
     } finally {
       setRetryingId(null);
+    }
+  };
+
+  const handleSendTestEmail = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setTestEmailResult(null);
+    const trimmed = testEmailAddress.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setErrorMessage('Ingresa un correo válido para la prueba de envío.');
+      return;
+    }
+
+    setTestingEmail(true);
+    try {
+      const res = await apiRequest<SendTestEmailResponse>('/notifications/test-email', {
+        method: 'POST',
+        body: { recipientEmail: trimmed },
+      });
+      setTestEmailResult(res);
+      reload();
+    } catch (err) {
+      setErrorMessage(
+        err instanceof ApiClientError
+          ? err.detail
+          : 'No fue posible ejecutar la comprobación de envío.',
+      );
+    } finally {
+      setTestingEmail(false);
     }
   };
 
@@ -164,6 +200,61 @@ export function NotificationsPage() {
           {errorMessage}
         </div>
       )}
+
+      <Card
+        title="Comprobar envío de correos"
+        description="Verifica la conexión SMTP (Mailpit, Resend o Brevo) y envía un correo de prueba inmediato antes de tus eventos."
+      >
+        <form
+          onSubmit={(e) => void handleSendTestEmail(e)}
+          className="flex flex-col sm:flex-row sm:items-end gap-3"
+        >
+          <div className="flex-1">
+            <Input
+              label="Correo de destino para la prueba"
+              type="email"
+              value={testEmailAddress}
+              onChange={(e) => setTestEmailAddress(e.target.value)}
+              placeholder="coordinacion@entidad.edu.co"
+              required
+            />
+          </div>
+          <Button type="submit" variant="secondary" disabled={testingEmail}>
+            <MailCheck className="h-4 w-4" aria-hidden="true" />
+            {testingEmail ? 'Comprobando SMTP…' : 'Enviar correo de prueba'}
+          </Button>
+        </form>
+
+        {testEmailResult && (
+          <div
+            role="status"
+            data-testid="test-email-result"
+            className={`mt-4 rounded-[var(--radius-control)] border px-4 py-3 text-xs flex items-start gap-2.5 ${
+              testEmailResult.ok
+                ? 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]'
+                : 'border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]'
+            }`}
+          >
+            {testEmailResult.ok ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            ) : (
+              <XCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            )}
+            <div className="space-y-1">
+              <p className="font-medium">{testEmailResult.message}</p>
+              <p>
+                Canal: <span className="font-mono">{testEmailResult.channel}</span> · Conexión SMTP:{' '}
+                <strong>{testEmailResult.verifiedConnection ? 'Verificada' : 'Fallida'}</strong> ·
+                Latencia: <span className="font-mono">{testEmailResult.latencyMs} ms</span>
+                {testEmailResult.sentAt ? ` · ${formatBogotaDateTime(testEmailResult.sentAt)}` : ''}
+              </p>
+              {testEmailResult.errorDetail && (
+                <p className="font-mono">Detalle: {testEmailResult.errorDetail}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {canSendMarketing && (
         <Card

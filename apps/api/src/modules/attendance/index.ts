@@ -70,6 +70,13 @@ export function createAttendanceModule(params: {
       ipHash?: string | null;
     }) => Promise<Person>;
   };
+  enqueuePreregistrationNotification?: (params: {
+    organizationId: string;
+    event: EventEntity;
+    organizationName: string;
+    person: Person;
+    recipientEmail: string;
+  }) => Promise<void>;
 }): AttendanceModule {
   const repository =
     params.repository ??
@@ -86,6 +93,7 @@ export function createAttendanceModule(params: {
     findOrganizationById: params.findOrganizationById,
     assertFeatureEnabled: params.assertFeatureEnabled,
     personGateway: params.personGateway,
+    enqueuePreregistrationNotification: params.enqueuePreregistrationNotification,
   });
 
   for (const eventName of ['event.published', 'event.opened', 'event.closed', 'event.cancelled']) {

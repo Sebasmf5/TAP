@@ -7,7 +7,11 @@ import {
   RegisterPage,
   UsersPage,
 } from '../features/access/index.ts';
-import { EventAttendancePage, PublicCheckinPage } from '../features/attendance/index.ts';
+import {
+  EventAttendancePage,
+  PublicCheckinPage,
+  PublicPreregistrationPage,
+} from '../features/attendance/index.ts';
 import { CertificatesPage, PublicCertificateVerifyPage } from '../features/certificates/index.ts';
 import { EventsPage } from '../features/events/index.ts';
 import { InventoryPage } from '../features/inventory/index.ts';
@@ -119,6 +123,7 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/c/:code" element={<PublicCheckinPage />} />
+            <Route path="/r/:code" element={<PublicPreregistrationPage />} />
             <Route path="/p/:code" element={<PublicLoanRequestPage />} />
             <Route path="/v/:code" element={<PublicCertificateVerifyPage />} />
             <Route path="/design-system" element={<DesignSystemShowcasePage />} />

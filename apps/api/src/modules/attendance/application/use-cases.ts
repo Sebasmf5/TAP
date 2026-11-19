@@ -11,6 +11,8 @@ import type {
   PublicCheckinLookupResponse,
   PublicCheckinSubmitRequest,
   PublicCheckinSubmitResponse,
+  PublicPreregistrationRequest,
+  PublicPreregistrationResponse,
   StaffManualAttendanceRequest,
   StaffScanAttendanceRequest,
   VoidAttendanceRequest,
@@ -71,6 +73,13 @@ export interface AttendanceDependencies {
       marketingOptIn?: boolean;
     }) => Promise<Person>;
   };
+  readonly enqueuePreregistrationNotification?: (params: {
+    organizationId: string;
+    event: EventEntity;
+    organizationName: string;
+    person: Person;
+    recipientEmail: string;
+  }) => Promise<void>;
 }
 
 interface CachedEventInfo {
@@ -1030,5 +1039,78 @@ export class AttendanceService {
     eventId: string,
   ): Promise<AttendanceRecord[]> {
     return this.deps.repository.listByEvent(organizationId, eventId, { status: 'valid' });
+  }
+
+  /**
+   * Preregistro público de un asistente a un evento: registra/actualiza sus datos,
+   * guarda consentimiento Ley 1581 y encola el correo de confirmación con su código QR.
+   */
+  async submitPublicPreregistration(params: {
+    publicCode: string;
+    input: PublicPreregistrationRequest;
+    ipHash?: string | null;
+  }): Promise<PublicPreregistrationResponse> {
+    this.checkPublicRateLimit(params.ipHash ?? null, params.publicCode);
+
+    const { event, organization } = await this.resolvePublicEventBundle(params.publicCode);
+    await this.deps.assertFeatureEnabled(event.organizationId, 'attendance');
+
+    if (event.status === 'cancelled' || event.status === 'closed') {
+      throw new ValidationError('Este evento ya no admite nuevos preregistros.');
+    }
+
+    const person = await this.deps.personGateway.registerPublicWalkInPerson({
+      organizationId: event.organizationId,
+      documentType: params.input.documentType,
+      documentNumber: params.input.documentNumber,
+      fullName: params.input.fullName,
+      institutionalCode: params.input.institutionalCode ?? null,
+      email: params.input.email,
+      phone: params.input.phone ?? null,
+      personType: params.input.personType,
+      isMinor: params.input.isMinor,
+      guardianName: params.input.guardianName ?? null,
+      guardianDocument: params.input.guardianDocument ?? null,
+      guardianPhone: params.input.guardianPhone ?? null,
+      consentVersion: organization.dataConsentVersion,
+      channel: 'public_checkin',
+      ipHash: params.ipHash ?? null,
+      marketingOptIn: params.input.marketingOptIn,
+    });
+
+    if (this.deps.enqueuePreregistrationNotification) {
+      await this.deps.enqueuePreregistrationNotification({
+        organizationId: event.organizationId,
+        event,
+        organizationName: organization.name,
+        person,
+        recipientEmail: params.input.email,
+      });
+    }
+
+    await this.deps.auditLog.record({
+      organizationId: event.organizationId,
+      actorUserId: null,
+      action: 'attendance.preregistration',
+      targetType: 'event',
+      targetId: event.id,
+      metadata: {
+        personId: person.id,
+        publicCode: event.publicCode,
+      },
+    });
+
+    const [localPart = '', domainPart = ''] = params.input.email.split('@');
+    const maskedLocal =
+      localPart.length <= 2 ? `${localPart[0] ?? '*'}••` : `${localPart.slice(0, 2)}•••`;
+    const maskedEmail = domainPart ? `${maskedLocal}@${domainPart}` : '***';
+
+    return {
+      preregistered: true,
+      maskedName: abbreviatePersonName(person.fullName),
+      maskedEmail,
+      eventName: event.name,
+      message: `Preregistro confirmado para ${event.name}. Enviamos la confirmación y tu código personal de ingreso a ${maskedEmail}.`,
+    };
   }
 }

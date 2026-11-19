@@ -7,6 +7,8 @@ import {
   PublicCheckinLookupResponseSchema,
   PublicCheckinSubmitRequestSchema,
   PublicCheckinSubmitResponseSchema,
+  PublicPreregistrationRequestSchema,
+  PublicPreregistrationResponseSchema,
   StaffManualAttendanceRequestSchema,
   StaffScanAttendanceRequestSchema,
   VoidAttendanceRequestSchema,
@@ -102,6 +104,31 @@ export function createAttendanceRoutes(deps: {
           input: req.body,
           ipHash: hashIp(req.ip),
           userAgent: req.headers['user-agent'] ?? null,
+        });
+      },
+    );
+
+    typed.post(
+      '/public/preregister/:code',
+      {
+        schema: {
+          tags: ['attendance'],
+          summary:
+            'Registra el preregistro público de un asistente y envía confirmación por correo con su código QR',
+          params: z.object({
+            code: z.string().trim().min(4).max(32),
+          }),
+          body: PublicPreregistrationRequestSchema,
+          response: {
+            200: PublicPreregistrationResponseSchema,
+          },
+        },
+      },
+      async (req) => {
+        return deps.service.submitPublicPreregistration({
+          publicCode: req.params.code,
+          input: req.body,
+          ipHash: hashIp(req.ip),
         });
       },
     );

@@ -4,6 +4,8 @@ import {
   MarketingCampaignResponseSchema,
   NotificationDtoSchema,
   NotificationStatusSchema,
+  SendTestEmailRequestSchema,
+  SendTestEmailResponseSchema,
 } from '@tap/contracts';
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -74,6 +76,25 @@ export function createNotificationsRoutes(deps: {
       async (req) => {
         const actor = await deps.authenticate(req);
         return deps.service.sendMarketingCampaign(actor, req.body);
+      },
+    );
+
+    typed.post(
+      '/notifications/test-email',
+      {
+        schema: {
+          tags: ['notifications'],
+          summary:
+            'Verifica la conexión SMTP y envía un correo de prueba para comprobar la entrega',
+          body: SendTestEmailRequestSchema,
+          response: {
+            200: SendTestEmailResponseSchema,
+          },
+        },
+      },
+      async (req) => {
+        const actor = await deps.authenticate(req);
+        return deps.service.sendTestEmail(actor, req.body);
       },
     );
 

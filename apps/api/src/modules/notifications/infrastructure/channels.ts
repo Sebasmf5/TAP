@@ -42,6 +42,10 @@ export class EmailNotificationChannel implements NotificationChannel {
     });
   }
 
+  public async verifyConnection(): Promise<void> {
+    await this.transporter.verify();
+  }
+
   public async send(message: OutboundNotificationMessage): Promise<void> {
     try {
       await this.transporter.sendMail({
@@ -74,6 +78,10 @@ export class LogNotificationChannel implements NotificationChannel {
 
   public constructor(logger?: Logger) {
     this.logger = logger;
+  }
+
+  public async verifyConnection(): Promise<void> {
+    // Canal en memoria siempre disponible en desarrollo/pruebas
   }
 
   public async send(message: OutboundNotificationMessage): Promise<void> {

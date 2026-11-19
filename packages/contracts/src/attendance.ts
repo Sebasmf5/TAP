@@ -108,6 +108,35 @@ export const PublicCheckinSubmitResponseSchema = z.object({
 });
 export type PublicCheckinSubmitResponse = z.infer<typeof PublicCheckinSubmitResponseSchema>;
 
+export const PublicPreregistrationRequestSchema = z.object({
+  documentType: DocumentTypeSchema.default('CC'),
+  documentNumber: z.string().trim().min(4, 'Escribe tu número de documento.').max(32),
+  fullName: z.string().trim().min(3, 'Escribe tu nombre completo.').max(160),
+  institutionalCode: z.string().trim().max(40).nullable().optional(),
+  email: z
+    .email('Ingresa un correo electrónico válido para enviarte la confirmación.')
+    .trim()
+    .toLowerCase(),
+  phone: z.string().trim().max(32).nullable().optional(),
+  personType: PersonTypeSchema.default('student'),
+  isMinor: z.boolean().default(false),
+  guardianName: z.string().trim().max(160).nullable().optional(),
+  guardianDocument: z.string().trim().max(32).nullable().optional(),
+  guardianPhone: z.string().trim().max(32).nullable().optional(),
+  acceptedDataConsent: z.literal(true),
+  marketingOptIn: z.boolean().optional().default(false),
+});
+export type PublicPreregistrationRequest = z.infer<typeof PublicPreregistrationRequestSchema>;
+
+export const PublicPreregistrationResponseSchema = z.object({
+  preregistered: z.boolean(),
+  maskedName: z.string(),
+  maskedEmail: z.string(),
+  eventName: z.string(),
+  message: z.string(),
+});
+export type PublicPreregistrationResponse = z.infer<typeof PublicPreregistrationResponseSchema>;
+
 export const StaffScanAttendanceRequestSchema = z.object({
   qrToken: z.string().trim().min(6).max(64),
   sessionId: z.uuid().optional(),

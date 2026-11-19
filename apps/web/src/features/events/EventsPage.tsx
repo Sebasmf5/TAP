@@ -330,7 +330,7 @@ export function EventsPage() {
           {selectedEvent && (
             <Card
               title={`Detalle del evento — ${selectedEvent.name}`}
-              description={`Código público: /c/${selectedEvent.publicCode} · Estado: ${STATUS_LABELS[selectedEvent.status].label}`}
+              description={`Check-in: /c/${selectedEvent.publicCode} · Preregistro: /r/${selectedEvent.publicCode} · Estado: ${STATUS_LABELS[selectedEvent.status].label}`}
             >
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
                 {qrInfo && (

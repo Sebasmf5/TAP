@@ -9,6 +9,8 @@ export const NotificationTemplateKeySchema = z.enum([
   'loan_overdue',
   'loan_returned',
   'marketing_campaign',
+  'test_email',
+  'event_preregistration',
 ]);
 export type NotificationTemplateKey = z.infer<typeof NotificationTemplateKeySchema>;
 
@@ -56,3 +58,20 @@ export const MarketingCampaignResponseSchema = z.object({
   sentAt: z.string(),
 });
 export type MarketingCampaignResponse = z.infer<typeof MarketingCampaignResponseSchema>;
+
+export const SendTestEmailRequestSchema = z.object({
+  recipientEmail: z.email('Ingresa un correo electrónico válido.').trim().toLowerCase(),
+});
+export type SendTestEmailRequest = z.infer<typeof SendTestEmailRequestSchema>;
+
+export const SendTestEmailResponseSchema = z.object({
+  ok: z.boolean(),
+  channel: NotificationChannelTypeSchema,
+  recipient: z.string(),
+  verifiedConnection: z.boolean(),
+  sentAt: z.string().nullable(),
+  latencyMs: z.number().int().min(0),
+  message: z.string(),
+  errorDetail: z.string().nullable(),
+});
+export type SendTestEmailResponse = z.infer<typeof SendTestEmailResponseSchema>;
