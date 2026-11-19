@@ -1,5 +1,5 @@
 import type { AttendanceStatus } from '@tap/contracts';
-import type { AttendanceRecord } from './entities.ts';
+import type { AttendanceRecord, EventPreregistrationRecord } from './entities.ts';
 
 export interface InsertCheckinResult {
   readonly inserted: boolean;
@@ -29,4 +29,9 @@ export interface AttendanceRepository {
     voidedAt: Date;
     voidedBy: string;
   }): Promise<AttendanceRecord | null>;
+  upsertPreregistration(record: EventPreregistrationRecord): Promise<EventPreregistrationRecord>;
+  listPreregistrationsByEvent(
+    organizationId: string,
+    eventId: string,
+  ): Promise<EventPreregistrationRecord[]>;
 }

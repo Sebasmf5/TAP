@@ -43,6 +43,13 @@
       "when": 1793855586337,
       "tag": "0005_small_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795094934844,
+      "tag": "0006_medical_vindicator",
+      "breakpoints": true
     }
   ]
 }

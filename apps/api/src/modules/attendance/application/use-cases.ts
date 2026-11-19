@@ -5,6 +5,8 @@ import type {
   DocumentType,
   EventAttendanceListResponse,
   EventAttendanceSummaryDto,
+  EventPreregistrationItemDto,
+  EventPreregistrationListResponse,
   PersonType,
   PublicCheckinEventInfo,
   PublicCheckinLookupRequest,
@@ -1088,6 +1090,15 @@ export class AttendanceService {
       });
     }
 
+    await this.deps.repository.upsertPreregistration({
+      id: this.deps.idGenerator.nextId(),
+      organizationId: event.organizationId,
+      eventId: event.id,
+      personId: person.id,
+      email: params.input.email,
+      createdAt: this.deps.clock.now(),
+    });
+
     await this.deps.auditLog.record({
       organizationId: event.organizationId,
       actorUserId: null,
@@ -1111,6 +1122,64 @@ export class AttendanceService {
       maskedEmail,
       eventName: event.name,
       message: `Preregistro confirmado para ${event.name}. Enviamos la confirmación y tu código personal de ingreso a ${maskedEmail}.`,
+    };
+  }
+
+  /**
+   * Lista las personas preregistradas en un evento y cruza su estado con las asistencias
+   * válidas para permitir check-in en 1 clic desde el panel del evento.
+   */
+  async listEventPreregistrations(
+    ctx: TenantContext,
+    eventId: string,
+  ): Promise<EventPreregistrationListResponse> {
+    const organizationId = requireOrganizationId(ctx);
+    const event = await this.deps.findEventById(organizationId, eventId);
+    if (!event) {
+      throw new NotFoundError('El evento solicitado no existe en tu entidad.');
+    }
+
+    const [preregistrations, validAttendances] = await Promise.all([
+      this.deps.repository.listPreregistrationsByEvent(organizationId, eventId),
+      this.deps.repository.listByEvent(organizationId, eventId, { status: 'valid' }),
+    ]);
+
+    const checkedInByPerson = new Map<string, Date>();
+    for (const att of validAttendances) {
+      const existing = checkedInByPerson.get(att.personId);
+      if (!existing || att.checkedInAt < existing) {
+        checkedInByPerson.set(att.personId, att.checkedInAt);
+      }
+    }
+
+    const items: EventPreregistrationItemDto[] = [];
+    for (const prereg of preregistrations) {
+      const person = await this.deps.personGateway.findById(organizationId, prereg.personId);
+      if (!person) continue;
+      const checkedInAt = checkedInByPerson.get(prereg.personId) ?? null;
+      items.push({
+        id: prereg.id,
+        eventId: prereg.eventId,
+        personId: prereg.personId,
+        fullName: person.fullName,
+        documentType: person.documentType,
+        documentNumber: person.documentNumber,
+        institutionalCode: person.institutionalCode,
+        email: prereg.email,
+        qrToken: person.qrToken ?? person.documentNumber,
+        registeredAt: prereg.createdAt.toISOString(),
+        checkedIn: checkedInAt !== null,
+        checkedInAt: checkedInAt ? checkedInAt.toISOString() : null,
+      });
+    }
+
+    return {
+      eventId: event.id,
+      eventName: event.name,
+      publicCode: event.publicCode,
+      totalPreregistered: items.length,
+      totalCheckedIn: items.filter((item) => item.checkedIn).length,
+      items,
     };
   }
 }

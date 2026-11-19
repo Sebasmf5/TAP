@@ -33,3 +33,19 @@ export const attendanceRecordsTable = attendanceSchema.table(
       .where(sql`${table.status} = 'valid'`),
   ],
 );
+
+export const eventPreregistrationsTable = attendanceSchema.table(
+  'event_preregistrations',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    eventId: uuid('event_id').notNull(),
+    personId: uuid('person_id').notNull(),
+    email: text('email').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_preregistration_event_person').on(table.eventId, table.personId),
+    index('idx_preregistration_org_event').on(table.organizationId, table.eventId),
+  ],
+);

@@ -12,6 +12,7 @@ import {
   type BadgeStatus,
   type TableColumn,
 } from '../../shared/ui/index.ts';
+import { EventPreregistrationsPanel } from '../attendance/index.ts';
 
 const STATUS_LABELS: Record<EventStatus, { label: string; badge: BadgeStatus }> = {
   draft: { label: 'Borrador', badge: 'neutral' },
@@ -406,6 +407,14 @@ export function EventsPage() {
                 </div>
               </div>
             </Card>
+          )}
+
+          {selectedEvent && (
+            <EventPreregistrationsPanel
+              eventId={selectedEvent.id}
+              eventName={selectedEvent.name}
+              publicCode={selectedEvent.publicCode}
+            />
           )}
         </div>
 

@@ -2,6 +2,7 @@ import {
   AttendanceRecordDtoSchema,
   AttendanceStatusSchema,
   EventAttendanceListResponseSchema,
+  EventPreregistrationListResponseSchema,
   PublicCheckinEventInfoSchema,
   PublicCheckinLookupRequestSchema,
   PublicCheckinLookupResponseSchema,
@@ -136,6 +137,24 @@ export function createAttendanceRoutes(deps: {
     // =========================================================================
     // Flujos de funcionario autenticado con JWT (`docs/especificacion.md` B1.5)
     // =========================================================================
+
+    typed.get(
+      '/events/:id/preregistrations',
+      {
+        schema: {
+          tags: ['attendance'],
+          summary: 'Lista las personas preregistradas en un evento y su estado de asistencia',
+          params: z.object({ id: z.uuid() }),
+          response: {
+            200: EventPreregistrationListResponseSchema,
+          },
+        },
+      },
+      async (req) => {
+        const ctx = await deps.authenticate(req);
+        return deps.service.listEventPreregistrations(ctx, req.params.id);
+      },
+    );
 
     typed.post(
       '/events/:id/attendance/scan',

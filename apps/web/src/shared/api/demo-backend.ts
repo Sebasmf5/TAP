@@ -1714,6 +1714,40 @@ export async function handleDemoRequest<T>(
     } as unknown as T;
   }
 
+  const preregMatch = /^\/events\/([^/]+)\/preregistrations$/.exec(pathname);
+  if (preregMatch && upperMethod === 'GET') {
+    const eventId = preregMatch[1] ?? '';
+    const event = demoEvents.find((e) => e.id === eventId) ?? demoEvents[0];
+    const eventAttendances = demoAttendance.filter(
+      (a) => a.eventId === (event?.id ?? eventId) && a.status === 'valid',
+    );
+    const items = demoPeople.slice(0, 3).map((person, index) => {
+      const att = eventAttendances.find((a) => a.personId === person.id);
+      return {
+        id: `demo-prereg-${person.id}`,
+        eventId: event?.id ?? eventId,
+        personId: person.id,
+        fullName: person.fullName,
+        documentType: person.documentType,
+        documentNumber: person.documentNumber,
+        institutionalCode: person.institutionalCode,
+        email: person.email ?? `participante${index + 1}@demo.tap`,
+        qrToken: person.qrToken,
+        registeredAt: new Date(Date.now() - (index + 1) * 3_600_000).toISOString(),
+        checkedIn: Boolean(att),
+        checkedInAt: att ? att.checkedInAt : null,
+      };
+    });
+    return {
+      eventId: event?.id ?? eventId,
+      eventName: event?.name ?? 'Evento Tap',
+      publicCode: event?.publicCode ?? 'FERIA1',
+      totalPreregistered: items.length,
+      totalCheckedIn: items.filter((i) => i.checkedIn).length,
+      items,
+    } as unknown as T;
+  }
+
   if (pathname === '/notifications/test-email' && upperMethod === 'POST') {
     const recipientEmail = String(payload['recipientEmail'] ?? 'admin@demo.tap')
       .trim()

@@ -25,6 +25,15 @@ export interface AttendanceRecord {
   readonly userAgent: string | null;
 }
 
+export interface EventPreregistrationRecord {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly eventId: string;
+  readonly personId: string;
+  readonly email: string;
+  readonly createdAt: Date;
+}
+
 export interface ResolvedPersonIdentity {
   readonly id: string;
   readonly organizationId: string;
@@ -33,6 +42,7 @@ export interface ResolvedPersonIdentity {
   readonly institutionalCode: string | null;
   readonly fullName: string;
   readonly personType: PersonType;
+  readonly qrToken?: string;
 }
 
 export interface PersonLookupGateway {

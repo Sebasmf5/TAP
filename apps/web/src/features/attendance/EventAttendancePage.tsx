@@ -34,6 +34,7 @@ import {
 } from '../../shared/offline/attendance-queue.ts';
 import { useOfflineAttendance } from '../../shared/offline/use-offline-attendance.ts';
 import { Badge, Button, Card, StatCard } from '../../shared/ui/index.ts';
+import { EventPreregistrationsPanel } from './EventPreregistrationsPanel.tsx';
 
 function decodeQrFromCanvasSource(
   source: CanvasImageSource,
@@ -975,6 +976,14 @@ export function EventAttendancePage() {
             </form>
           </div>
         </div>
+      )}
+
+      {event && (
+        <EventPreregistrationsPanel
+          eventId={event.id}
+          eventName={event.name}
+          publicCode={event.publicCode}
+        />
       )}
 
       {/* Ventana modal de confirmación al escanear carné QR */}

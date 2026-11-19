@@ -137,6 +137,34 @@ export const PublicPreregistrationResponseSchema = z.object({
 });
 export type PublicPreregistrationResponse = z.infer<typeof PublicPreregistrationResponseSchema>;
 
+export const EventPreregistrationItemDtoSchema = z.object({
+  id: z.uuid(),
+  eventId: z.uuid(),
+  personId: z.uuid(),
+  fullName: z.string(),
+  documentType: DocumentTypeSchema,
+  documentNumber: z.string(),
+  institutionalCode: z.string().nullable(),
+  email: z.string(),
+  qrToken: z.string(),
+  registeredAt: z.string(),
+  checkedIn: z.boolean(),
+  checkedInAt: z.string().nullable(),
+});
+export type EventPreregistrationItemDto = z.infer<typeof EventPreregistrationItemDtoSchema>;
+
+export const EventPreregistrationListResponseSchema = z.object({
+  eventId: z.uuid(),
+  eventName: z.string(),
+  publicCode: z.string(),
+  totalPreregistered: z.number().int().min(0),
+  totalCheckedIn: z.number().int().min(0),
+  items: z.array(EventPreregistrationItemDtoSchema),
+});
+export type EventPreregistrationListResponse = z.infer<
+  typeof EventPreregistrationListResponseSchema
+>;
+
 export const StaffScanAttendanceRequestSchema = z.object({
   qrToken: z.string().trim().min(6).max(64),
   sessionId: z.uuid().optional(),
